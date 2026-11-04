@@ -5,7 +5,7 @@ Bağımsız Android YKS deneme analizi uygulaması.
 **Durum: Android arayüz önizlemesi v0.1.0.** Deneme sonuçları, grafikler, konu başarıları ve yapay zekâ öneri metinleri örnektir; henüz gerçek veri/analiz işleme yoktur.
 
 ## Özellikler
-- Premium koyu tema ile dört ekran: Ana Sayfa, Denemeler, Analiz ve Hesabım
+- Premium sade siyah-beyaz tema ile dört ekran: Ana Sayfa, Denemeler, Analiz ve Hesabım
 - Android PDF dosya seçici (analiz henüz bağlı değil)
 - SoruLab'dan bağımsız Android paket kimliği `com.denemelab.preview`
 
@@ -21,6 +21,10 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`
 
 ### GitHub Actions
 `main` dalına yüklenen kod otomatik APK derlemesi başlatır. **Actions → Android preview APK → başarılı çalışma → Artifacts → DenemeLab-Android-Preview-APK** yolundan indirilebilir.
+
+## Ürün planı
+- [Rakip analizi ve ürün öncelikleri](docs/2026-11-05-urun-stratejisi-ve-rakip-analizi.md)
+- [Premium siyah-beyaz tasarım ve animasyon kılavuzu](docs/denemelab-premium-ui-motion-spec.md)
 
 ## Sonraki adımlar
 Gerçek TYT/AYT net hesaplama, deneme kayıtları, PDF/optik okuma, cevap anahtarı eşleştirme, konu-kazanım raporları ve isteğe bağlı bulut senkronizasyonu.
