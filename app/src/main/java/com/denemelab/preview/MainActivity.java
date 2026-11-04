@@ -21,13 +21,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    private static final int BG = Color.rgb(247, 249, 252);
+    private static final int BG = Color.rgb(249, 249, 249);
     private static final int SURFACE = Color.WHITE;
-    private static final int SURFACE2 = Color.rgb(237, 242, 248);
-    private static final int INK = Color.rgb(27, 42, 62);
-    private static final int MUTED = Color.rgb(108, 122, 142);
-    private static final int MINT = Color.rgb(6, 119, 111);
-    private static final int LAVENDER = Color.rgb(102, 90, 200);
+    private static final int SURFACE2 = Color.rgb(243, 243, 243);
+    private static final int INK = Color.rgb(19, 19, 19);
+    private static final int MUTED = Color.rgb(106, 106, 106);
+    private static final int MINT = Color.rgb(19, 19, 19);
+    private static final int LAVENDER = Color.rgb(80, 80, 80);
     private LinearLayout root;
     private LinearLayout page;
     private int currentPage = 0;
@@ -127,14 +127,14 @@ public class MainActivity extends Activity {
 
         LinearLayout top = horizontal();
         top.setPadding(dp(22), dp(22), dp(22), dp(12));
-        TextView logo = label("◈", 29, MINT, true);
+        TextView logo = label("D", 25, INK, true);
         top.addView(logo);
         LinearLayout brand = vertical();
         brand.setPadding(dp(10), 0, 0, 0);
         brand.addView(label("DENEMELAB", 14, INK, true));
-        brand.addView(label("YKS PERFORMANCE", 9, MUTED, false));
+        brand.addView(label("Deneme analizi", 10, MUTED, false));
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView preview = label("PREVIEW", 10, MINT, true);
+        TextView preview = label("ÖNİZLEME", 10, MUTED, true);
         preview.setBackground(shape(SURFACE2, 11));
         preview.setPadding(dp(12), dp(8), dp(12), dp(8));
         top.addView(preview);
@@ -157,21 +157,21 @@ public class MainActivity extends Activity {
     }
 
     private void home() {
-        headline("Merhaba, şampiyon! ✨", "Bugün hedefine biraz daha yaklaş.");
+        headline("Genel Bakış", "Deneme performansın tek ekranda.");
         LinearLayout hero = vertical();
         GradientDrawable grad = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            new int[]{Color.rgb(237, 241, 255), Color.rgb(220, 245, 239)});
+            new int[]{Color.WHITE, Color.rgb(248, 248, 248)});
         grad.setCornerRadius(dp(25));
         hero.setBackground(grad);
         hero.setPadding(dp(24), dp(24), dp(24), dp(24));
-        hero.addView(label("DENEME PERFORMANSI · ÖRNEK", 11, MINT, true));
+        hero.addView(label("DENEME PERFORMANSI · ÖRNEK", 11, MUTED, true));
         gap(hero, 21);
         hero.addView(label("78,50", 47, INK, true));
         gap(hero, 2);
         hero.addView(label("TYT toplam net", 15, INK, false));
         gap(hero, 18);
-        TextView chip = label("↗  +4,75 net  /  geçen deneme", 12, MINT, true);
-        chip.setBackground(shape(Color.rgb(206, 237, 230), 12));
+        TextView chip = label("+4,75 net  /  geçen deneme", 12, INK, true);
+        chip.setBackground(shape(Color.rgb(239, 239, 239), 12));
         chip.setPadding(dp(12), dp(10), dp(12), dp(10));
         hero.addView(chip, new LinearLayout.LayoutParams(-2, -2));
         page.addView(hero);
@@ -342,6 +342,7 @@ public class MainActivity extends Activity {
     private void navigation() {
         LinearLayout bar = horizontal();
         bar.setBackgroundColor(SURFACE);
+        bar.setElevation(dp(4));
         bar.setPadding(dp(8), dp(12), dp(8), dp(12));
         String[] names = {"Ana Sayfa", "Denemeler", "Analiz", "Hesabım"};
         String[] icons = {"⌂", "▤", "▥", "◉"};
@@ -369,7 +370,7 @@ public class MainActivity extends Activity {
             float w = getWidth(), h = getHeight();
             Paint p = new Paint(3);
             p.setStrokeWidth(dp(1));
-            p.setColor(Color.rgb(224, 230, 240));
+            p.setColor(Color.rgb(233, 233, 233));
             for (int i = 1; i <= 3; i++) {
                 float y = h * i / 4f;
                 canvas.drawLine(0, y, w, y, p);
@@ -381,7 +382,7 @@ public class MainActivity extends Activity {
                 float y = h - dp(13) - (h - dp(27)) * (numbers[i] / 100f);
                 if (i == 0) line.moveTo(x, y); else line.lineTo(x, y);
             }
-            p.setShader(new LinearGradient(0, 0, w, h, MINT, LAVENDER, Shader.TileMode.CLAMP));
+            p.setShader(new LinearGradient(0, 0, w, h, INK, Color.rgb(90, 90, 90), Shader.TileMode.CLAMP));
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(dp(3));
             p.setStrokeCap(Paint.Cap.ROUND);
