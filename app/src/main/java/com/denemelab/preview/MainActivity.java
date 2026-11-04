@@ -21,13 +21,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    private static final int BG = Color.rgb(9, 14, 29);
-    private static final int SURFACE = Color.rgb(19, 27, 47);
-    private static final int SURFACE2 = Color.rgb(26, 37, 59);
-    private static final int WHITE = Color.rgb(245, 249, 255);
-    private static final int MUTED = Color.rgb(145, 160, 183);
-    private static final int MINT = Color.rgb(110, 244, 203);
-    private static final int LAVENDER = Color.rgb(171, 150, 255);
+    private static final int BG = Color.rgb(247, 249, 252);
+    private static final int SURFACE = Color.WHITE;
+    private static final int SURFACE2 = Color.rgb(237, 242, 248);
+    private static final int INK = Color.rgb(27, 42, 62);
+    private static final int MUTED = Color.rgb(108, 122, 142);
+    private static final int MINT = Color.rgb(6, 119, 111);
+    private static final int LAVENDER = Color.rgb(102, 90, 200);
     private LinearLayout root;
     private LinearLayout page;
     private int currentPage = 0;
@@ -36,7 +36,10 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(BG);
-        getWindow().setNavigationBarColor(BG);
+        getWindow().setNavigationBarColor(SURFACE);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR |
+            (android.os.Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0));
         render();
     }
 
@@ -81,12 +84,13 @@ public class MainActivity extends Activity {
     private LinearLayout panel() {
         LinearLayout box = vertical();
         box.setBackground(shape(SURFACE, 22));
+        box.setElevation(dp(2));
         box.setPadding(dp(18), dp(18), dp(18), dp(18));
         return box;
     }
 
     private void headline(String text, String subtitle) {
-        page.addView(label(text, 27, WHITE, true));
+        page.addView(label(text, 27, INK, true));
         gap(page, 7);
         page.addView(label(subtitle, 13, MUTED, false));
         gap(page, 24);
@@ -94,7 +98,7 @@ public class MainActivity extends Activity {
 
     private void section(String name, String hint) {
         LinearLayout r = horizontal();
-        r.addView(label(name, 18, WHITE, true), new LinearLayout.LayoutParams(0, -2, 1));
+        r.addView(label(name, 18, INK, true), new LinearLayout.LayoutParams(0, -2, 1));
         if (hint != null) r.addView(label(hint, 11, MINT, false));
         page.addView(r);
         gap(page, 14);
@@ -107,7 +111,7 @@ public class MainActivity extends Activity {
     }
 
     private void action(LinearLayout target, String title, boolean prominent, Runnable callback) {
-        TextView v = label(title, 15, prominent ? BG : WHITE, true);
+        TextView v = label(title, 15, prominent ? Color.WHITE : INK, true);
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(16), dp(16), dp(16), dp(16));
         v.setBackground(shape(prominent ? MINT : SURFACE2, 16));
@@ -127,7 +131,7 @@ public class MainActivity extends Activity {
         top.addView(logo);
         LinearLayout brand = vertical();
         brand.setPadding(dp(10), 0, 0, 0);
-        brand.addView(label("DENEMELAB", 14, WHITE, true));
+        brand.addView(label("DENEMELAB", 14, INK, true));
         brand.addView(label("YKS PERFORMANCE", 9, MUTED, false));
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         TextView preview = label("PREVIEW", 10, MINT, true);
@@ -156,18 +160,18 @@ public class MainActivity extends Activity {
         headline("Merhaba, şampiyon! ✨", "Bugün hedefine biraz daha yaklaş.");
         LinearLayout hero = vertical();
         GradientDrawable grad = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            new int[]{Color.rgb(53, 69, 127), Color.rgb(24, 77, 88)});
+            new int[]{Color.rgb(237, 241, 255), Color.rgb(220, 245, 239)});
         grad.setCornerRadius(dp(25));
         hero.setBackground(grad);
         hero.setPadding(dp(24), dp(24), dp(24), dp(24));
         hero.addView(label("DENEME PERFORMANSI · ÖRNEK", 11, MINT, true));
         gap(hero, 21);
-        hero.addView(label("78,50", 47, WHITE, true));
+        hero.addView(label("78,50", 47, INK, true));
         gap(hero, 2);
-        hero.addView(label("TYT toplam net", 15, WHITE, false));
+        hero.addView(label("TYT toplam net", 15, INK, false));
         gap(hero, 18);
         TextView chip = label("↗  +4,75 net  /  geçen deneme", 12, MINT, true);
-        chip.setBackground(shape(Color.rgb(20, 56, 69), 12));
+        chip.setBackground(shape(Color.rgb(206, 237, 230), 12));
         chip.setPadding(dp(12), dp(10), dp(12), dp(10));
         hero.addView(chip, new LinearLayout.LayoutParams(-2, -2));
         page.addView(hero);
@@ -216,7 +220,7 @@ public class MainActivity extends Activity {
             LinearLayout upload = panel();
             upload.addView(label("Seçilen dosya", 12, MINT, true));
             gap(upload, 9);
-            upload.addView(label(selectedPdf, 15, WHITE, true));
+            upload.addView(label(selectedPdf, 15, INK, true));
             gap(upload, 10);
             note(upload, "Dosya seçimi çalışır. PDF analizi bu iskelet sürümünde etkin değildir.");
             page.addView(upload);
@@ -242,7 +246,7 @@ public class MainActivity extends Activity {
         row.addView(icon, new LinearLayout.LayoutParams(dp(45), dp(45)));
         LinearLayout text = vertical();
         text.setPadding(dp(14), 0, 0, 0);
-        text.addView(label(name, 15, WHITE, true));
+        text.addView(label(name, 15, INK, true));
         gap(text, 7);
         text.addView(label(detail, 12, MUTED, false));
         row.addView(text);
@@ -254,7 +258,7 @@ public class MainActivity extends Activity {
         LinearLayout header = panel();
         header.addView(label("◈   YAPAY ZEKÂ ANALİZİ", 12, MINT, true));
         gap(header, 12);
-        header.addView(label("Güçlü yanların. Gelişim alanların.", 21, WHITE, true));
+        header.addView(label("Güçlü yanların. Gelişim alanların.", 21, INK, true));
         gap(header, 11);
         note(header, "Bu ekranda yalnızca premium analiz tasarımının örnek görünümü yer alıyor.");
         page.addView(header);
@@ -273,7 +277,7 @@ public class MainActivity extends Activity {
         LinearLayout insight = panel();
         insight.addView(label("✦   ANALİZ ÖNİZLEMESİ", 12, MINT, true));
         gap(insight, 12);
-        insight.addView(label("Problem sorularında tekrar yapmak faydalı olabilir.", 17, WHITE, true));
+        insight.addView(label("Problem sorularında tekrar yapmak faydalı olabilir.", 17, INK, true));
         gap(insight, 10);
         note(insight, "Bu metin örnektir, yapay zekâ tarafından üretilmemiştir.");
         page.addView(insight);
@@ -281,7 +285,7 @@ public class MainActivity extends Activity {
 
     private void skill(LinearLayout box, String title, int value, int tint) {
         LinearLayout row = horizontal();
-        row.addView(label(title, 14, WHITE, true), new LinearLayout.LayoutParams(0, -2, 1));
+        row.addView(label(title, 14, INK, true), new LinearLayout.LayoutParams(0, -2, 1));
         row.addView(label("%" + value, 13, tint, true));
         box.addView(row);
         gap(box, 9);
@@ -299,14 +303,14 @@ public class MainActivity extends Activity {
         LinearLayout card = panel();
         card.addView(label("◉", 44, MINT, true));
         gap(card, 13);
-        card.addView(label("DenemeLab Preview", 20, WHITE, true));
+        card.addView(label("DenemeLab Preview", 20, INK, true));
         gap(card, 7);
         note(card, "Yerel önizleme • Giriş ve bulut bağlantısı bu sürümde bulunmuyor.");
         page.addView(card);
         gap(page, 20);
         section("Uygulama hakkında", null);
         LinearLayout details = panel();
-        details.addView(label("Versiyon 0.1.0", 15, WHITE, true));
+        details.addView(label("Versiyon 0.1.0", 15, INK, true));
         gap(details, 11);
         note(details, "Bağımsız Android arayüz prototipi. Tam YKS deneme analizi sistemi değildir.");
         page.addView(details);
@@ -365,7 +369,7 @@ public class MainActivity extends Activity {
             float w = getWidth(), h = getHeight();
             Paint p = new Paint(3);
             p.setStrokeWidth(dp(1));
-            p.setColor(Color.rgb(49, 59, 80));
+            p.setColor(Color.rgb(224, 230, 240));
             for (int i = 1; i <= 3; i++) {
                 float y = h * i / 4f;
                 canvas.drawLine(0, y, w, y, p);
