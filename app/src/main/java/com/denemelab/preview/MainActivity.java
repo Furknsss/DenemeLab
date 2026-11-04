@@ -131,13 +131,9 @@ public class MainActivity extends Activity {
         top.addView(logo);
         LinearLayout brand = vertical();
         brand.setPadding(dp(10), 0, 0, 0);
-        brand.addView(label("DENEMELAB", 14, INK, true));
+        brand.addView(label("DenemeLab", 14, INK, true));
         brand.addView(label("Deneme analizi", 10, MUTED, false));
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView preview = label("ÖNİZLEME", 10, MUTED, true);
-        preview.setBackground(shape(SURFACE2, 11));
-        preview.setPadding(dp(12), dp(8), dp(12), dp(8));
-        top.addView(preview);
         root.addView(top);
 
         ScrollView scroller = new ScrollView(this);
@@ -275,7 +271,7 @@ public class MainActivity extends Activity {
         page.addView(skills);
         gap(page, 22);
         LinearLayout insight = panel();
-        insight.addView(label("✦   ANALİZ ÖNİZLEMESİ", 12, MINT, true));
+        insight.addView(label("✦   ANALİZ İPUCU", 12, MINT, true));
         gap(insight, 12);
         insight.addView(label("Problem sorularında tekrar yapmak faydalı olabilir.", 17, INK, true));
         gap(insight, 10);
@@ -303,7 +299,7 @@ public class MainActivity extends Activity {
         LinearLayout card = panel();
         card.addView(label("◉", 44, MINT, true));
         gap(card, 13);
-        card.addView(label("DenemeLab Preview", 20, INK, true));
+        card.addView(label("DenemeLab", 20, INK, true));
         gap(card, 7);
         note(card, "Yerel önizleme • Giriş ve bulut bağlantısı bu sürümde bulunmuyor.");
         page.addView(card);
