@@ -2,7 +2,7 @@ name: Android preview APK
 
 on:
   push:
-    branches: [main, feat/licensed-university-brand-visuals]
+    branches: [main, feat/real-subject-results-v0-4]
   workflow_dispatch:
 
 permissions:
