@@ -184,15 +184,16 @@ private fun DenemeLabApp() {
         onSave = { submission ->
             if (!savingExam) {
                 savingExam = true
+                val previousExams = exams.toList()
                 scope.launch {
                     val outcome = withContext(Dispatchers.IO) {
                         runCatching {
-                            // Saving a new publisher logo is independent from
-                            // exam history; past exams are never rewritten.
+                            // A failed image import aborts the exam write; a
+                            // failed exam write never claims a successful save.
                             PublisherCatalog.upsert(
                                 context, submission.exam.publisher, submission.newPublisherLogo
                             )
-                            LocalData.saveExams(context, listOf(submission.exam) + exams.toList())
+                            LocalData.saveExams(context, listOf(submission.exam) + previousExams)
                         }
                     }
                     savingExam = false
