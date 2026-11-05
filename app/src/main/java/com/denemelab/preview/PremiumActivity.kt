@@ -171,14 +171,18 @@ private fun DenemeLabApp() {
         }
     }
 
-    if (showAddExam) ExamEntryDialog(
+    if (showAddExam) ExamEntryV2(
         onDismiss = { showAddExam = false },
         onSave = { exam ->
-            exams.add(0, exam)
-            LocalData.saveExams(context, exams)
-            showAddExam = false
-            tab = 1
-            generalMode = exam.category
+            val updated = listOf(exam) + exams.toList()
+            if (LocalData.saveExams(context, updated)) {
+                exams.add(0, exam)
+                showAddExam = false
+                tab = 1
+                generalMode = exam.category
+            } else {
+                Toast.makeText(context, "Deneme cihazına kaydedilemedi. Lütfen yeniden dene.", Toast.LENGTH_LONG).show()
+            }
         })
 
     if (showAddQuestion) QuestionEntryDialog(
@@ -238,7 +242,7 @@ private fun DenemeLabApp() {
             showGoalDialog = false
         })
 
-    if (openedExam != null) ExamDetails(openedExam!!) { openedExam = null }
+    if (openedExam != null) ExamDetailsV2(openedExam!!) { openedExam = null }
 }
 
 @Composable
@@ -406,7 +410,7 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
                 Spacer(Modifier.height(4.dp))
                 Text("net · " + last.name, color = Grey, fontSize = 13.sp)
                 Spacer(Modifier.height(13.dp))
-                val prev = generals.drop(1).firstOrNull { it.examType == last.examType }
+                val prev = generals.drop(1).firstOrNull { ExamRules.comparable(it, last) }
                 if (prev != null) {
                     val diff = last.net - prev.net
                     Text((if (diff > 0) "+" else "") + LocalData.net(diff) + " net · önceki denemeye göre",
@@ -416,7 +420,7 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
             Spacer(Modifier.height(16.dp))
             SectionTitle("Net eğilimi")
             PremiumCard(Modifier.fillMaxWidth()) {
-                TrendChart(generals.filter { it.examType == last.examType }.sortedBy { it.createdAt }, 145)
+                TrendChart(generals.filter { ExamRules.comparable(it, last) }.sortedBy { it.createdAt }, 145)
             }
             Spacer(Modifier.height(18.dp))
             PrimaryAction("Yeni deneme ekle", onAdd)
@@ -538,10 +542,25 @@ private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
                 TrendChart(selected.filter { ExamRules.comparable(it, last) }.sortedBy { it.createdAt }, 150)
             }
             Spacer(Modifier.height(22.dp))
+            if (last.parts.isNotEmpty()) {
+                SectionTitle("Ders bazında sonuçların")
+                PremiumCard(Modifier.fillMaxWidth()) {
+                    SubjectBreakdownSection(last.parts)
+                }
+                Spacer(Modifier.height(20.dp))
+            } else {
+                PremiumCard(Modifier.fillMaxWidth()) {
+                    Text("Ders kırılımı bulunmuyor", color = Ink,
+                        fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Spacer(Modifier.height(7.dp))
+                    Muted("Bu kayıtta yalnızca toplam net var. Ders bazlı analiz için yeni ders ders giriş ekranını kullan.")
+                }
+                Spacer(Modifier.height(20.dp))
+            }
             PremiumCard(Modifier.fillMaxWidth()) {
-                Text("Konu bazlı analiz", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text("Konu ve soru analizi", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Spacer(Modifier.height(8.dp))
-                Muted("Yanlış soruların konu ve kazanım bilgisi bağlandığında tekrar eden eksikleri burada göstereceğiz. Şimdilik yalnızca doğrulanmış net verileri gösteriliyor.")
+                Muted("Konu tespiti ve yanlış soruların otomatik aktarımı, soru cevapları ve doğrulanmış cevap anahtarları eklendiğinde açılacak.")
             }
         }
     }
@@ -813,72 +832,6 @@ private fun QuestionBankScreen(questions: List<QuestionRecord>,
 }
 
 @Composable
-private fun ExamEntryDialog(onDismiss: () -> Unit, onSave: (ExamRecord) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Genel") }
-    var examType by remember { mutableStateOf("TYT") }
-    var subject by remember { mutableStateOf("") }
-    var correct by remember { mutableStateOf("") }
-    var wrong by remember { mutableStateOf("") }
-    var blank by remember { mutableStateOf("") }
-    val c = correct.toIntOrNull()
-    val w = wrong.toIntOrNull()
-    val b = blank.toIntOrNull()
-    val total = if (c != null && w != null && b != null) c + w + b else -1
-    val expected = if (examType == "TYT") 120 else 80
-    val valid = title.isNotBlank() && ExamRules.validCounts(category, examType, subject, c, w, b)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Yeni deneme", fontWeight = FontWeight.Bold, color = Ink) },
-        text = {
-            Column(Modifier.heightIn(max = 425.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Pill("Genel", category == "Genel", { category = "Genel" })
-                    Pill("Branş", category == "Branş", { category = "Branş" })
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Pill("TYT", examType == "TYT", { examType = "TYT" })
-                    Pill("AYT", examType == "AYT", { examType = "AYT" })
-                }
-                OutlinedTextField(title, { title = it }, label = { Text("Deneme adı") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
-                if (category == "Branş") {
-                    OutlinedTextField(subject, { subject = it }, label = { Text("Ders (ör. Matematik)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    listOf(Triple("Doğru", correct, { s: String -> correct = s }),
-                        Triple("Yanlış", wrong, { s: String -> wrong = s }),
-                        Triple("Boş", blank, { s: String -> blank = s })).forEach { (label, value, setter) ->
-                        OutlinedTextField(value, setter, label = { Text(label, fontSize = 12.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true, modifier = Modifier.weight(1f))
-                    }
-                }
-                Muted(if (category == "Genel") "Genel " + examType + ": toplam " + expected + " soru girilmelidir."
-                    else "Branş denemesinde soruların toplamını kendin belirlersin.")
-                if (c != null && w != null && c >= 0 && w >= 0) {
-                    Text("Hesaplanan net: " + LocalData.net(c - w / 4.0),
-                        fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 14.sp)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                if (valid) onSave(ExamRecord(
-                    System.currentTimeMillis(), title.trim(), category, examType, subject.trim(),
-                    c!!, w!!, b!!, System.currentTimeMillis()
-                ))
-            }, enabled = valid) { Text("Kaydet") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } },
-        containerColor = Color.White
-    )
-}
-
-@Composable
 private fun QuestionEntryDialog(onDismiss: () -> Unit, onSave: (QuestionRecord) -> Unit) {
     var title by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("") }
@@ -950,26 +903,3 @@ private fun TargetEntryDialog(initial: TargetRecord, onDismiss: () -> Unit, onSa
     )
 }
 
-@Composable
-private fun ExamDetails(exam: ExamRecord, onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss,
-        title = { Text(exam.name, fontWeight = FontWeight.Bold, color = Ink) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Muted(exam.category + " · " + exam.examType +
-                    (if (exam.subject.isNotBlank()) " · " + exam.subject else ""))
-                Text(LocalData.net(exam.net) + " net",
-                    fontSize = 29.sp, color = Ink, fontWeight = FontWeight.Bold)
-                HorizontalDivider(color = Line)
-                Text("Doğru: " + exam.correct, color = Ink)
-                Text("Yanlış: " + exam.wrong, color = Ink)
-                Text("Boş: " + exam.blank, color = Ink)
-                Muted("Kaydedilme: " + LocalData.date(exam.createdAt))
-                Spacer(Modifier.height(3.dp))
-                Muted("Ders ders analiz için sonuçların ders kırılımının girilmesi gerekir; bu kayıt toplam net içeriyor.")
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Kapat") } },
-        containerColor = Color.White
-    )
-}
