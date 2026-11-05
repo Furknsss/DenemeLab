@@ -97,6 +97,31 @@ class TopicAnalyticsV3Test {
         assertEquals(1,x.risks.first().seenInExams)
     }
 
+    @Test fun scenarioSubjectRowsSumToSameCappedTotal() {
+        val exams=(1L..5L).map { id ->
+            exam(id,listOf(issue("Üslü Sayılar","Yanlış",3),
+                ExamTopicIssue("tyt_turkce","Türkçe","Paragraf","Boş",2)))
+        }
+        val x=TopicAnalyticsV3.analyze(exams,AnalysisScope("Genel","TYT"))
+        for (pct in listOf(0,25,50,75,100)) {
+            assertEquals(x.scenarioGain(pct),
+                x.scenarioBySubject(pct).sumOf { it.second },0.000001)
+        }
+    }
+
+    @Test fun positiveTopicAndDifficultyPersistAcrossExamJson() {
+        val e=exam(19,outcomes=listOf(
+            TopicOutcome("tyt_mat","Matematik","Üslü Sayılar",4,1,0)
+        )).copy(difficulty="Orta-Zor",parts=ExamStructure.subjectsForEntry("TYT","")
+            .map { t -> if(t.key=="tyt_mat") SubjectScore(t.key,t.title,t.questions,4,1)
+                else SubjectScore(t.key,t.title,t.questions,0,0) },
+            correct=4,wrong=1,blank=115)
+        val decoded=ExamJsonCodec.decode(ExamJsonCodec.encode(listOf(e))).single()
+        assertEquals(e,decoded)
+        assertEquals("Orta-Zor",decoded.difficulty)
+        assertEquals(1,decoded.topicOutcomes.size)
+    }
+
     @Test fun countReasonUsesOnlyIdentifiedWrong() {
         val exams=listOf(exam(1,listOf(
             issue("Üslü","Yanlış",2,"Dikkat hatası"),
