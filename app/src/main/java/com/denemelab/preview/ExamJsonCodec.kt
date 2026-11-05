@@ -20,6 +20,7 @@ object ExamJsonCodec {
                 .put("createdAt", exam.createdAt).put("track", exam.track)
                 .put("publisher", exam.publisher).put("examDate", exam.examDate)
                 .put("mood", exam.mood).put("source", exam.source)
+                .put("difficulty", exam.difficulty)
             val issues = JSONArray()
             exam.topicIssues.forEach { issue ->
                 issues.put(JSONObject().put("lessonKey", issue.lessonKey)
@@ -100,7 +101,8 @@ object ExamJsonCodec {
                     mood = record.optString("mood", "Normal"),
                     source = record.optString("source", "Manuel"),
                     topicIssues = issues,
-                    topicOutcomes = outcomes
+                    topicOutcomes = outcomes,
+                    difficulty = record.optString("difficulty", "Belirtilmedi")
                 )
                 // A broken part table must not contaminate analyses.
                 // Do not invent missing parts on legacy totals.
