@@ -663,11 +663,19 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
         Spacer(Modifier.height(25.dp))
         SectionTitle("Hedef üniversitem")
         PremiumCard(Modifier.fillMaxWidth()) {
-            Text(if (target.university.isNotBlank()) target.university else "Hedef üniversiteni belirle",
-                fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-            Spacer(Modifier.height(7.dp))
-            Text(if (target.department.isNotBlank()) target.department else "Bölümünü ve hedef sıralamanı kaydet.",
-                fontSize = 13.sp, color = Grey)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (program != null) {
+                    UniversityLogo(program.universityId, program.university, 46.dp)
+                    Spacer(Modifier.width(12.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(if (target.university.isNotBlank()) target.university else "Hedef üniversiteni belirle",
+                        fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                    Spacer(Modifier.height(6.dp))
+                    Text(if (target.department.isNotBlank()) target.department else "Bölümünü ve hedef sıralamanı kaydet.",
+                        fontSize = 13.sp, color = Grey)
+                }
+            }
             if (target.targetRank.isNotBlank()) {
                 Spacer(Modifier.height(14.dp))
                 Text("Kişisel hedef sıralaman · " + target.targetRank,
