@@ -26,11 +26,8 @@ object ExamRules {
         return category == "Branş" && subject.isNotBlank()
     }
 
-    fun comparable(first: ExamRecord, second: ExamRecord): Boolean {
-        if (first.category != second.category || first.examType != second.examType) return false
-        return first.category == "Genel" ||
-            first.subject.trim().equals(second.subject.trim(), ignoreCase = true)
-    }
+    fun comparable(first: ExamRecord, second: ExamRecord): Boolean =
+        ExamStructure.comparable(first, second)
 
     fun nextCorrectStreak(current: Int, correct: Boolean): Int =
         if (correct) (current + 1).coerceIn(0, 2) else 0
