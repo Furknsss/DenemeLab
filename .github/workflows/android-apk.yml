@@ -2,7 +2,7 @@ name: Android preview APK
 
 on:
   push:
-    branches: [main, feat/five-tab-premium-foundation]
+    branches: [main, feat/yokatlas-profile-target-search]
   workflow_dispatch:
 
 permissions:
