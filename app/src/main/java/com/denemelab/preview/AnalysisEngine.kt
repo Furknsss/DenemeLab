@@ -95,13 +95,15 @@ object AnalysisEngine {
                 .distinctBy { it.examType + "|" + it.subject.trim().lowercase(Locale.forLanguageTag("tr-TR")) }
                 .map { AnalysisScope(category, it.examType, it.subject) }
         }
-        val choices = listOf(AnalysisScope(category, "TYT"))
-        val ayt = within.filter { it.examType == "AYT" }
+        val choices = listOf(AnalysisScope(category, "TYT")) +
+            listOf("SAY", "EA", "SÖZ").map { AnalysisScope(category, "AYT", it) }
+        val extraTracks = within.filter { it.examType == "AYT" }
             .map { it.track }.distinct()
-            .sortedWith(compareBy<String> { if (it == "SAY") 0 else if (it == "EA") 1 else if (it == "SÖZ") 2 else 3 })
+            .filter { it !in listOf("SAY", "EA", "SÖZ") }
             .map { AnalysisScope(category, "AYT", it) }
-        // AYT with unspecified track must remain a separate, honest cohort.
-        return choices + ayt
+        // All three AYT tracks remain selectable even with zero recorded tests.
+        // Legacy AYT with unspecified track is visible in a separate cohort.
+        return choices + extraTracks
     }
 
     fun analyze(exams: List<ExamRecord>, scope: AnalysisScope): AnalysisSnapshot {
