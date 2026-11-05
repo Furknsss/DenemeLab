@@ -18,7 +18,7 @@ data class ExamRecord(
     val blank: Int,
     val createdAt: Long
 ) {
-    val net: Double get() = correct - wrong / 4.0
+    val net: Double get() = ExamRules.net(correct, wrong)
 }
 
 data class QuestionRecord(
