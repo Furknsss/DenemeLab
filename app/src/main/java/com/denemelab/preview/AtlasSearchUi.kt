@@ -43,7 +43,8 @@ private val Paper = androidx.compose.ui.graphics.Color.White
 @Composable
 fun AtlasSearchDialog(
     onDismiss: () -> Unit,
-    onChoose: (AtlasProgram) -> Unit
+    onChoose: (AtlasProgram) -> Unit,
+    initialProgram: AtlasProgram? = null
 ) {
     var search by remember { mutableStateOf("") }
     var score by remember { mutableStateOf("SAY") }
@@ -54,17 +55,19 @@ fun AtlasSearchDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var data by remember { mutableStateOf<AtlasResult?>(null) }
     var page by remember { mutableIntStateOf(0) }
-    var detail by remember { mutableStateOf<AtlasProgram?>(null) }
+    var detail by remember { mutableStateOf<AtlasProgram?>(initialProgram) }
+    var retryCatalog by remember { mutableIntStateOf(0) }
+    var retrySearch by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(retryCatalog) {
         loadingCatalog = true
         try { catalog = YokAtlasCatalog.catalog() }
         catch (e: Exception) { error = e.message ?: "Katalog indirilemedi" }
         finally { loadingCatalog = false }
     }
 
-    LaunchedEffect(catalog, search, score, category, page) {
+    LaunchedEffect(catalog, search, score, category, page, retrySearch) {
         val lookups = catalog ?: return@LaunchedEffect
         loadingResults = true
         if (page == 0) data = null
@@ -149,7 +152,7 @@ fun AtlasSearchDialog(
                             CircularProgressIndicator(color = Black, modifier = Modifier.size(27.dp), strokeWidth = 2.dp)
                         }
                     } else if (error != null && data == null) {
-                        AtlasFailure(error ?: "", onRetry = { catalog = null; loadingCatalog = true }) {
+                        AtlasFailure(error ?: "", onRetry = { if (catalog == null) retryCatalog++ else retrySearch++ }) {
                             // An explicit retry is implemented by dismissing and reopening.
                             onDismiss()
                         }
@@ -200,7 +203,10 @@ private fun AtlasFailure(message: String, onRetry: () -> Unit, onExit: () -> Uni
         Spacer(Modifier.height(6.dp))
         Text(message, color = Neutral, fontSize = 12.sp)
         Spacer(Modifier.height(11.dp))
-        TextButton(onClick = onExit) { Text("Kapat", color = Black) }
+        Row {
+            TextButton(onClick = onRetry) { Text("Yeniden dene", color = Black) }
+            TextButton(onClick = onExit) { Text("Kapat", color = Black) }
+        }
     }
 }
 
