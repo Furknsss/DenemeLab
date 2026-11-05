@@ -2,7 +2,7 @@ name: Android preview APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/five-tab-premium-foundation]
   workflow_dispatch:
 
 permissions:
