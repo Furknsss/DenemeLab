@@ -149,6 +149,19 @@ object YokAtlasCatalog {
         AtlasResult(all.distinctBy { it.code }, total, year)
     }
 
+    suspend fun programByCode(code: Long): AtlasProgram? = withContext(Dispatchers.IO) {
+        if (code <= 0L) return@withContext null
+        val body = JSONObject()
+            .put("filters", filter(null, null).put("kilavuzKodu", code))
+            .put("page", 0)
+            .put("size", 1)
+            .put("sortBy", "basariSirasi")
+            .put("direction", "ASC")
+        val response = jsonRequest("/api/tercih-kilavuz/search", body)
+        val first = response.optJSONArray("content")?.optJSONObject(0) ?: return@withContext null
+        parseProgram(first)?.takeIf { it.code == code }
+    }
+
     suspend fun lastPlacedNets(program: AtlasProgram): List<AtlasNet> = withContext(Dispatchers.IO) {
         if (program.programGroupId <= 0 || program.universityId <= 0) return@withContext emptyList()
         val f = JSONObject()
