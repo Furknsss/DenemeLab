@@ -4,6 +4,7 @@ on:
     branches: [qa/analysis-insights-v071-emulator]
 permissions:
   contents: read
+  actions: read
 jobs:
   smoke:
     runs-on: ubuntu-latest
