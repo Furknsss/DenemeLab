@@ -93,6 +93,12 @@ private fun DenemeLabApp() {
     val exams = remember { mutableStateListOf<ExamRecord>().apply { addAll(LocalData.loadExams(context)) } }
     val questions = remember { mutableStateListOf<QuestionRecord>().apply { addAll(LocalData.loadQuestions(context)) } }
     var target by remember { mutableStateOf(LocalData.loadTarget(context)) }
+    var studentProfile by remember { mutableStateOf(LocalData.loadProfile(context)) }
+    var reduceMotion by remember { mutableStateOf(LocalData.reduceMotion(context)) }
+    var selectedProgram by remember { mutableStateOf<AtlasProgram?>(null) }
+    var showProfileDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showAtlasDialog by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
     var showAddExam by remember { mutableStateOf(false) }
     var showAddQuestion by remember { mutableStateOf(false) }
@@ -101,6 +107,13 @@ private fun DenemeLabApp() {
     var generalMode by remember { mutableStateOf("Genel") }
     var analysisMode by remember { mutableStateOf("Genel") }
     var progressMode by remember { mutableStateOf("Genel") }
+
+    LaunchedEffect(target.programCode) {
+        if (target.programCode > 0) {
+            selectedProgram = try { YokAtlasCatalog.programByCode(target.programCode) }
+                catch (_: Exception) { null }
+        } else selectedProgram = null
+    }
 
     val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -119,13 +132,13 @@ private fun DenemeLabApp() {
     MaterialTheme(colorScheme = palette) {
         Box(Modifier.fillMaxSize().background(Light).statusBarsPadding().navigationBarsPadding()) {
             Column(Modifier.fillMaxSize()) {
-                AppHeader(
-                    selected = tab,
-                    onAddExam = { showAddExam = true },
-                    onAddQuestion = { showAddQuestion = true },
-                    onSettings = { showGoalDialog = true }
+                ProfileTopBar(
+                    title = TABS[tab].title, profile = studentProfile,
+                    showAddExam = tab == 1, showAddQuestion = tab == 4,
+                    onAddExam = { showAddExam = true }, onAddQuestion = { showAddQuestion = true },
+                    onProfile = { showProfileDialog = true }, onSettings = { showSettingsDialog = true }
                 )
-                Crossfade(targetState = tab, animationSpec = tween(190), label = "DenemeLabSection") { selected ->
+                Crossfade(targetState = tab, animationSpec = tween(if (reduceMotion) 0 else 190), label = "DenemeLabSection") { selected ->
                     when (selected) {
                         0 -> HomeScreen(exams, questions, onAdd = { showAddExam = true }, onNavigate = { tab = it })
                         1 -> ExamsScreen(
@@ -135,7 +148,9 @@ private fun DenemeLabApp() {
                             onDetail = { openedExam = it })
                         2 -> AnalysisScreen(exams, analysisMode, onMode = { analysisMode = it }, onAdd = { showAddExam = true })
                         3 -> ProgressScreen(exams, progressMode, onMode = { progressMode = it },
-                            target = target, onGoal = { showGoalDialog = true })
+                            target = target, onGoal = { showAtlasDialog = true },
+                            onManualGoal = { showGoalDialog = true },
+                            program = selectedProgram)
                         else -> QuestionBankScreen(questions, onAdd = { showAddQuestion = true },
                             onUpdate = { question, correct ->
                                 val index = questions.indexOfFirst { it.id == question.id }
@@ -149,7 +164,7 @@ private fun DenemeLabApp() {
                     }
                 }
             }
-            FloatingDock(tab, onSelect = { tab = it }, Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp))
+            FloatingDock(tab, onSelect = { tab = it }, Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp), reduceMotion)
         }
     }
 
@@ -172,6 +187,42 @@ private fun DenemeLabApp() {
             tab = 4
         })
 
+    if (showProfileDialog) StudentProfileDialog(
+        initial = studentProfile,
+        onDismiss = { showProfileDialog = false },
+        onSave = {
+            studentProfile = it
+            LocalData.saveProfile(context, it)
+            showProfileDialog = false
+        },
+        onPickTarget = {
+            showProfileDialog = false
+            showAtlasDialog = true
+        }
+    )
+    if (showSettingsDialog) DenemeLabSettingsDialog(
+        reduceMotion = reduceMotion,
+        onMotionChanged = {
+            reduceMotion = it
+            LocalData.saveReduceMotion(context, it)
+        },
+        onDismiss = { showSettingsDialog = false }
+    )
+    if (showAtlasDialog) AtlasSearchDialog(
+        onDismiss = { showAtlasDialog = false },
+        onChoose = { program ->
+            selectedProgram = program
+            target = target.copy(
+                university = program.university, department = program.program,
+                programCode = program.code, universityType = program.universityType,
+                language = program.language, scholarship = program.scholarship,
+                scoreType = program.scoreType
+            )
+            LocalData.saveTarget(context, target)
+            showAtlasDialog = false
+            tab = 3
+        }
+    )
     if (showGoalDialog) TargetEntryDialog(
         initial = target,
         onDismiss = { showGoalDialog = false },
@@ -218,7 +269,7 @@ private fun HeaderAction(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, reduceMotion: Boolean = false) {
     Surface(
         modifier = modifier.fillMaxWidth(0.96f).shadow(16.dp, RoundedCornerShape(33.dp)),
         shape = RoundedCornerShape(33.dp), color = Color.White,
@@ -229,7 +280,7 @@ private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modif
             TABS.forEachIndexed { index, entry ->
                 val active = selected == index
                 val dimension by animateDpAsState(
-                    if (active) 57.dp else 47.dp, animationSpec = tween(200), label = "DockIconSize")
+                    if (active) 57.dp else 47.dp, animationSpec = tween(if (reduceMotion) 0 else 200), label = "DockIconSize")
                 Surface(
                     onClick = { onSelect(index) },
                     modifier = Modifier.size(dimension).semantics { contentDescription = entry.title },
@@ -834,7 +885,7 @@ private fun TargetEntryDialog(initial: TargetRecord, onDismiss: () -> Unit, onSa
             }
         },
         confirmButton = { TextButton(onClick = {
-            onSave(TargetRecord(university.trim(), department.trim(), rank.trim(), grade.trim()))
+            onSave(initial.copy(university = university.trim(), department = department.trim(), targetRank = rank.trim(), schoolGrade = grade.trim()))
         }) { Text("Kaydet") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } },
         containerColor = Color.White
