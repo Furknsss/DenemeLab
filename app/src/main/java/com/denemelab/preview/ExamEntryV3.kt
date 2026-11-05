@@ -98,7 +98,8 @@ fun ExamEntryV3(
     val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
     val successItems = remember { mutableStateListOf<TopicOutcome>() }
     var editingIssue by remember { mutableStateOf<Pair<String,String>?>(null) }
-    val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    var showPhotoTopicReview by remember { mutableStateOf(false) }
+    val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             reportResult = null
             reportError = null
@@ -129,7 +130,7 @@ fun ExamEntryV3(
             verifiedKeys.clear()
             parsed.counts.forEach { (key, value) ->
                 numbers[key] = value
-                verifiedKeys[key] = true
+                verifiedKeys[key] = key !in parsed.ambiguousLessons
             }
             issueItems.clear()
             issueItems.addAll(parsed.topics)
@@ -168,7 +169,7 @@ fun ExamEntryV3(
     )
     val photoReady = reportResult != null && !readingReport && reviewedReport &&
         examType == "TYT" && examCategory == "Genel" &&
-        templates.all { verifiedKeys[it.key] == true }
+        templates.all { verifiedKeys[it.key] == true } && successEvidenceValid
     val saveEnabled = examName.isNotBlank() &&
         publisherName.isNotBlank() && !isSaving && issueError == null &&
         (if (examCategory == "Genel") generalOk else branchOk) &&
@@ -320,7 +321,9 @@ fun ExamEntryV3(
                     }
                     Spacer(Modifier.height(22.dp))
                     if (selectedMethod == "Fotoğraf ile Ekle") {
-                        PhotoImportPanel(resultsImage) { reportPicker.launch("image/*") }
+                        PhotoImportPanel(resultsImage) {
+                            reportPicker.launch(arrayOf("image/*", "application/pdf"))
+                        }
                         Spacer(Modifier.height(13.dp))
                         if (readingReport) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -338,11 +341,35 @@ fun ExamEntryV3(
                             report.warnings.forEach {
                                 Text(it, color = Muted, fontSize = 11.sp)
                             }
-                            Text("${successItems.size} konu için doğru cevap kanıtı algılandı.",color = Black,fontSize = 11.sp)
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                "${successItems.size} kazanım · ${successItems.sumOf { it.questions }} sorunun D/Y/Boş ayrımı okundu",
+                                color = Black, fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (report.detectedTopicRows > successItems.size)
+                                Text(
+                                    "${report.detectedTopicRows - successItems.size} konu satırı belirsiz; kontrol edip gerekirse ekle.",
+                                    color = Color(0xFFB42318), fontSize = 11.sp
+                                )
                             if (!successEvidenceValid) Text(
-                                "Ders sonuçlarıyla uyuşmayan konu doğruları başarı analizine aktarılmayacak.",
+                                "Konu sayıları ders toplamlarıyla uyuşmuyor. Kaydetmeden önce düzelt.",
                                 color = Color(0xFFB42318), fontSize = 11.sp)
-                            Text("OCR ile okunan sayıları ve konuları kontrol et. Yanlış okunan dersin sürgüsünü düzelt.",
+                            Spacer(Modifier.height(9.dp))
+                            Surface(
+                                onClick = { showPhotoTopicReview = true },
+                                shape = RoundedCornerShape(13.dp), color = Soft,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Tüm konuları ve D / Y / Boş sayılarını incele",
+                                    Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+                                    color = Black, fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text("OCR sonucu kesin kabul edilmez. Konu sayıları ve dersler tutarlı olmalı.",
                                 color = Muted, fontSize = 11.sp)
                         }
                         Spacer(Modifier.height(16.dp))
@@ -392,6 +419,8 @@ fun ExamEntryV3(
                                                         numbers[lesson.key] = c to w
                                                         if (selectedMethod == "Fotoğraf ile Ekle")
                                                             verifiedKeys[lesson.key] = true
+                                                        if (selectedMethod == "Fotoğraf ile Ekle")
+                                                            reviewedReport = false
                                                     }
                                                     Spacer(Modifier.height(8.dp))
                                                     if (selectedMethod == "Fotoğraf ile Ekle" &&
@@ -529,6 +558,30 @@ fun ExamEntryV3(
             }
         }
     }
+    if (showPhotoTopicReview) {
+        PhotoTopicReviewDialog(
+            rows = successItems.toList(),
+            onDismiss = { showPhotoTopicReview = false },
+            onChange = { updated ->
+                successItems.clear()
+                successItems.addAll(updated)
+                val manual = issueItems.filterNot { it.provenance == "Belge OCR" }
+                issueItems.clear()
+                issueItems.addAll(manual)
+                updated.forEach { row ->
+                    if (row.wrong > 0) issueItems.add(ExamTopicIssue(
+                        row.lessonKey, row.lessonName, row.topic,
+                        "Yanlış", row.wrong, "Belirtilmedi", "Belge OCR"
+                    ))
+                    if (row.blank > 0) issueItems.add(ExamTopicIssue(
+                        row.lessonKey, row.lessonName, row.topic,
+                        "Boş", row.blank, "Belirtilmedi", "Belge OCR"
+                    ))
+                }
+                reviewedReport = false
+            }
+        )
+    }
     editingIssue?.let { (key, kind) ->
         val lesson = if (key == "branch") SubjectScore(
             "branch", branchSubject.ifBlank { "Branş" }, selectedCount,
@@ -615,13 +668,22 @@ private fun PhotoImportPanel(photo: Uri?, onPick: () -> Unit) {
             Text("Sonuç belgeni seç", color = Black,
                 fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             Spacer(Modifier.height(8.dp))
-            Text("ML Kit belgeyi cihazında analiz eder. Okunamayan dersleri elle düzelt; kontrol etmeden kayıt yapılmaz.",
+            Text("PDF veya yüksek çözünürlüklü fotoğraf seç. Küçük satırlar ayrı taranır; kaydetmeden önce bütün konuları kontrol et.",
                 color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 17.sp)
             if (photo != null) {
                 Spacer(Modifier.height(12.dp))
-                AsyncImage(model = photo, contentDescription = "Seçilen sonuç belgesi",
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
-                    contentScale = ContentScale.Fit)
+                val resolver = LocalContext.current.contentResolver
+                val isPdf = resolver.getType(photo)?.contains("pdf", ignoreCase = true) == true ||
+                    photo.lastPathSegment?.endsWith(".pdf", ignoreCase = true) == true
+                if (isPdf) {
+                    Text("PDF belge seçildi · yüksek çözünürlüklü tarama",
+                        color = Black, fontSize = 12.sp,
+                        textAlign = TextAlign.Center)
+                } else {
+                    AsyncImage(model = photo, contentDescription = "Seçilen sonuç belgesi",
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                        contentScale = ContentScale.Fit)
+                }
             }
             Spacer(Modifier.height(13.dp))
             Surface(onClick = onPick, shape = RoundedCornerShape(14.dp), color = Paper,
