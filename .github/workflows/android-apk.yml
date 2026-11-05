@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-focus-engine-v07]
+    branches: [main, feat/analysis-focus-engine-v07, feat/analysis-insights-v07]
   workflow_dispatch:
 
 permissions:
