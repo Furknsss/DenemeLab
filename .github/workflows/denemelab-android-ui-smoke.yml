@@ -1,0 +1,90 @@
+name: DenemeLab 0.7 emulator smoke QA
+on:
+  push:
+    branches: [qa/analysis-v07-emulator]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Enable emulator KVM
+        run: |
+          ls -l /dev/kvm || true
+          sudo chmod 666 /dev/kvm
+      - name: Retrieve identical SHA verified APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p apk
+          gh run download 41990142848 --name DenemeLab-Android-Test-APK --dir apk
+          test -s apk/app-debug.apk
+          echo '0fa00d5cc3a62ff54238ed9b0ea0f29bafafe54e2510405743f2784a179dc246  apk/app-debug.apk' | sha256sum --check
+      - name: Boot Android and verify analysis navigation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 2048M
+          heap-size: 512M
+          disable-animations: true
+          script: |
+            set -e
+            mkdir -p qa
+            adb install apk/app-debug.apk
+            adb shell am start -W -n com.denemelab.preview/.PremiumActivity | tee qa/launch.txt
+            sleep 6
+            adb shell screencap -p /sdcard/denemelab-home.png
+            adb pull /sdcard/denemelab-home.png qa/home.png
+            adb shell uiautomator dump /sdcard/denemelab-view.xml
+            adb pull /sdcard/denemelab-view.xml qa/view.xml
+            python3 - <<'PY'
+            import re, xml.etree.ElementTree as E
+            root = E.parse('qa/view.xml')
+            targets = [node for node in root.iter('node') if node.get('content-desc','') == 'Analiz']
+            if targets:
+                m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', targets[0].get('bounds',''))
+                if m:
+                    x1,y1,x2,y2 = map(int,m.groups())
+                    open('qa/tap.txt','w').write(f'{(x1+x2)//2} {(y1+y2)//2}')
+            PY
+            if test -f qa/tap.txt; then
+              adb shell input tap $(cat qa/tap.txt)
+            else
+              size=$(adb shell wm size | tail -1 | tr -dc '0-9x')
+              width=${size%x*}
+              height=${size#*x}
+              adb shell input tap $((width/2)) $((height-155))
+            fi
+            sleep 5
+            adb shell screencap -p /sdcard/denemelab-analysis.png
+            adb pull /sdcard/denemelab-analysis.png qa/analysis.png
+            adb shell uiautomator dump /sdcard/denemelab-analysis.xml
+            adb pull /sdcard/denemelab-analysis.xml qa/analysis.xml
+            adb logcat -d > qa/logcat.txt
+            if grep -A 9 'FATAL EXCEPTION' qa/logcat.txt | grep -q 'com.denemelab.preview'; then
+              echo 'App fatal exception in emulator'
+              exit 1
+            fi
+            grep -E 'Analiz|NET PUSULASI|Net Pusulası|deneme' qa/analysis.xml | head -c 400 || true
+            test -s qa/analysis.png
+      - name: Preserve UI QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenemeLab-v07-emulator-ui-smoke
+          path: |
+            qa/home.png
+            qa/analysis.png
+            qa/analysis.xml
+            qa/launch.txt
+            qa/tap.txt
+          if-no-files-found: ignore
+          retention-days: 14
