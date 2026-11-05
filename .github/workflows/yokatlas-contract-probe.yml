@@ -1,0 +1,15 @@
+name: YOK Atlas integration probe
+on:
+  push:
+    branches: [feat/yokatlas-profile-target-search]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check-upstream-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check official public university search endpoints
+        run: python3 scripts/yokatlas_contract_probe.py
