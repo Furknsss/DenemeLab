@@ -16,9 +16,12 @@ data class ExamRecord(
     val correct: Int,
     val wrong: Int,
     val blank: Int,
-    val createdAt: Long
+    val createdAt: Long,
+    val track: String = "",
+    val parts: List<SubjectScore> = emptyList()
 ) {
     val net: Double get() = ExamRules.net(correct, wrong)
+    val hasSubjectDetails: Boolean get() = parts.isNotEmpty()
 }
 
 data class QuestionRecord(
@@ -62,39 +65,16 @@ object LocalData {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun loadExams(context: Context): List<ExamRecord> = runCatching {
-        val values = JSONArray(preferences(context).getString("exams", "[]") ?: "[]")
-        (0 until values.length()).map { i ->
-            val v = values.getJSONObject(i)
-            ExamRecord(
-                id = v.getLong("id"),
-                name = v.optString("name"),
-                category = v.optString("category", "Genel"),
-                examType = v.optString("examType", "TYT"),
-                subject = v.optString("subject"),
-                correct = v.getInt("correct"),
-                wrong = v.getInt("wrong"),
-                blank = v.getInt("blank"),
-                createdAt = v.getLong("createdAt")
-            )
-        }.sortedByDescending { it.createdAt }
+        ExamJsonCodec.decode(preferences(context).getString("exams", "[]") ?: "[]")
     }.getOrElse { emptyList() }
 
-    fun saveExams(context: Context, exams: List<ExamRecord>) {
-        val values = JSONArray()
-        exams.forEach {
-            values.put(JSONObject()
-                .put("id", it.id)
-                .put("name", it.name)
-                .put("category", it.category)
-                .put("examType", it.examType)
-                .put("subject", it.subject)
-                .put("correct", it.correct)
-                .put("wrong", it.wrong)
-                .put("blank", it.blank)
-                .put("createdAt", it.createdAt))
-        }
-        preferences(context).edit().putString("exams", values.toString()).apply()
-    }
+    /**
+     * Synchronous write allows callers to report a storage failure rather
+     * than claiming that a record has been saved before disk persistence.
+     * Existing v0.3.x preference key remains unchanged (in-place upgrade).
+     */
+    fun saveExams(context: Context, exams: List<ExamRecord>): Boolean =
+        preferences(context).edit().putString("exams", ExamJsonCodec.encode(exams)).commit()
 
     fun loadQuestions(context: Context): List<QuestionRecord> = runCatching {
         val values = JSONArray(preferences(context).getString("questions", "[]") ?: "[]")
