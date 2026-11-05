@@ -66,12 +66,6 @@ fun PhotoTopicReviewDialog(
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 15.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Tümü" to "Tümü") +
-                        lessons.map { it.key to it.title }
-                }.also { }
                 // Explicit compact filter, no crowded nested cards.
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                     .padding(horizontal = 15.dp),
