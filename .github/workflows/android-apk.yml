@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/exam-photo-ocr-topics-v06]
+    branches: [main, feat/analysis-focus-engine-v07]
   workflow_dispatch:
 
 permissions:

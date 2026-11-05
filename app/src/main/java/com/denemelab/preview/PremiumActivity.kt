@@ -154,7 +154,9 @@ private fun DenemeLabApp() {
                             onAdd = { showAddExam = true },
                             onPdf = { pdfPicker.launch(arrayOf("application/pdf")) },
                             onDetail = { openedExam = it })
-                        2 -> AnalysisScreen(exams, analysisMode, onMode = { analysisMode = it }, onAdd = { showAddExam = true })
+                        2 -> AnalysisDashboard(exams, analysisMode,
+                            onCategory = { analysisMode = it },
+                            onAdd = { showAddExam = true }, reduceMotion = reduceMotion)
                         3 -> ProgressScreen(exams, progressMode, onMode = { progressMode = it },
                             target = target, onGoal = { openSelectedDetail = false; showAtlasDialog = true },
                             onManualGoal = { showGoalDialog = true },
@@ -537,67 +539,6 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
                     }
                 }
                 Spacer(Modifier.height(11.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (String) -> Unit, onAdd: () -> Unit) {
-    ScrollScreen {
-        Headline("Analiz", "Sayılardan öğren, bir sonraki adımı gör.")
-        CategoryPicker(mode, onMode)
-        val selected = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
-        val last = selected.firstOrNull()
-        if (last == null) {
-            BlankState("Analiz için deneme gerekiyor",
-                "Genel ve branş denemelerini birbirinden bağımsız analiz edeceğiz.",
-                "Deneme ekle", onAdd)
-        } else {
-            SectionTitle("Son denemenin dağılımı")
-            PremiumCard(Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    DonutChart(last.correct, last.wrong, last.blank)
-                    Spacer(Modifier.width(20.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(LocalData.net(last.net), fontWeight = FontWeight.Bold, color = Ink, fontSize = 28.sp)
-                        Muted("toplam net")
-                        Spacer(Modifier.height(14.dp))
-                        ChartLegend("Doğru", last.correct, Ink)
-                        Spacer(Modifier.height(6.dp))
-                        ChartLegend("Yanlış", last.wrong, Middle)
-                        Spacer(Modifier.height(6.dp))
-                        ChartLegend("Boş", last.blank, Line)
-                    }
-                }
-            }
-            Spacer(Modifier.height(26.dp))
-            SectionTitle("Gelişim")
-            PremiumCard(Modifier.fillMaxWidth()) {
-                Muted("Aynı türden kayıtların zaman içindeki netleri")
-                Spacer(Modifier.height(11.dp))
-                TrendChart(selected.filter { ExamRules.comparable(it, last) }.sortedBy { it.examDate }, 150)
-            }
-            Spacer(Modifier.height(22.dp))
-            if (last.parts.isNotEmpty()) {
-                SectionTitle("Ders bazında sonuçların")
-                PremiumCard(Modifier.fillMaxWidth()) {
-                    SubjectBreakdownSection(last.parts, issues = last.topicIssues)
-                }
-                Spacer(Modifier.height(20.dp))
-            } else {
-                PremiumCard(Modifier.fillMaxWidth()) {
-                    Text("Ders kırılımı bulunmuyor", color = Ink,
-                        fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    Spacer(Modifier.height(7.dp))
-                    Muted("Bu kayıtta yalnızca toplam net var. Ders bazlı analiz için yeni ders ders giriş ekranını kullan.")
-                }
-                Spacer(Modifier.height(20.dp))
-            }
-            PremiumCard(Modifier.fillMaxWidth()) {
-                Text("Konu ve soru analizi", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Spacer(Modifier.height(8.dp))
-                Muted("Konu tespiti ve yanlış soruların otomatik aktarımı, soru cevapları ve doğrulanmış cevap anahtarları eklendiğinde açılacak.")
             }
         }
     }
