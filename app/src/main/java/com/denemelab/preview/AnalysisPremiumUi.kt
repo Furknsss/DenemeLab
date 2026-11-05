@@ -53,7 +53,7 @@ fun AnalysisDashboard(
     reduceMotion: Boolean
 ) {
     var selection by remember(category) { mutableStateOf("") }
-    val available = remember(exams, category) { AnalysisEngine.scopes(exams, category) }
+    val available = AnalysisEngine.scopes(exams, category)
 
     // Initial selection: most recent recorded exam, not an empty TYT
     // placeholder when the student only has AYT results.
