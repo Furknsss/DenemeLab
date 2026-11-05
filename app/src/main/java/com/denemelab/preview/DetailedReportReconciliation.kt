@@ -61,12 +61,17 @@ object DetailedReportReconciliation {
                 continue
             }
             detectedRows++
-            validatedRight += trimmed
+            validatedRight += trimmed.removeSuffix("%")
         }
         if (suspectNumericLines > 0)
             warnings.add("$suspectNumericLines kazanım satırında sütunlar tutarsız; doğrulama gerekli.")
 
-        val right = ReportTableParser.parse(validatedRight.joinToString("\n"))
+        // The legacy parser validates right-hand topic totals against the
+        // left-hand lesson table. Supply those lines in the same pass, or a
+        // right-only scan would discard every topic as ungrounded.
+        val right = ReportTableParser.parse(
+            (leftRows + validatedRight).joinToString("\n")
+        )
         // Different recognition resolutions can recover different rows. Keep
         // the high resolution row first; deduplicate by lesson+topic, never by
         // lesson alone or a topic name can disappear.
