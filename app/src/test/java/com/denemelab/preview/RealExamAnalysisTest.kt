@@ -71,7 +71,7 @@ class RealExamAnalysisTest {
         val scores = ExamStructure.subjects("AYT", "SAY").map {
             SubjectScore(it.key, it.title, it.questions, it.questions / 2, 0)
         }
-        val newest = ExamRecord(2, "AYT SAY", "Genel", "AYT", "", 40, 0, 40,
+        val newest = ExamRecord(2, "AYT SAY", "Genel", "AYT", "", 39, 0, 41,
             2, track = "SAY", parts = scores)
         val legacy = ExamRecord(1, "Eski TYT", "Genel", "TYT", "", 80, 20, 20, 1)
         val decoded = ExamJsonCodec.decode(ExamJsonCodec.encode(listOf(legacy, newest)))
