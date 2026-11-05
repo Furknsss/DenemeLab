@@ -10,17 +10,18 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-      - name: Install build tools
-        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
-      - name: Compile identical source revision
-        run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
+      - name: Retrieve exact independently built and SHA-verified APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p apk
+          gh run download 41997018829 --name DenemeLab-Android-Test-APK --dir apk
+          test -s apk/app-debug.apk
+          echo '793c2f83c724aaea15e8e2d5fc63bdac4379647d0585dc99478e62774153c195  apk/app-debug.apk' | sha256sum --check
       - name: Generate true TYT exam fixtures for analysis rendering
         run: |
           mkdir -p qa
@@ -60,7 +61,7 @@ jobs:
           disable-animations: true
           script: |
             set -e
-            adb install app/build/outputs/apk/debug/app-debug.apk
+            adb install apk/app-debug.apk
             adb shell am start -W -n com.denemelab.preview/.PremiumActivity | tee qa/launch.txt
             adb shell am force-stop com.denemelab.preview
             adb push qa/denemelab_local_v1.xml /data/local/tmp/denemelab_local_v1.xml
