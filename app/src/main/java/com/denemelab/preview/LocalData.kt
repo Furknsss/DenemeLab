@@ -49,7 +49,7 @@ data class TargetRecord(
 data class StudentProfile(
     val firstName: String = "",
     val surname: String = "",
-    val grade: String = "12. sınıf",
+    val grade: String = "Seçilmedi",
     val pictureUri: String = ""
 ) {
     val displayName: String get() = firstName.ifBlank { "Öğrenci" }
@@ -163,7 +163,7 @@ object LocalData {
         return StudentProfile(
             firstName = p.getString("studentFirstName", "") ?: "",
             surname = p.getString("studentSurname", "") ?: "",
-            grade = p.getString("studentGrade", "12. sınıf") ?: "12. sınıf",
+            grade = p.getString("studentGrade", "Seçilmedi") ?: "Seçilmedi",
             pictureUri = p.getString("studentPictureUri", "") ?: ""
         )
     }
