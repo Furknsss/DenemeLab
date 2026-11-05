@@ -327,8 +327,10 @@ private fun MetricLabel(label:String,value:String,modifier:Modifier=Modifier) {
 private fun SpeedGauge(net:Double, limit:Int, reduceMotion:Boolean) {
     val maxValue = limit.coerceAtLeast(1)
     val progress = (net / maxValue).toFloat().coerceIn(0f,1f)
-    val animated by animateFloatAsState(progress,animationSpec=tween(if(reduceMotion) 0 else 880),
-        label="NetPusula")
+    var revealed by remember(net,maxValue) { mutableFloatStateOf(0f) }
+    LaunchedEffect(net,maxValue) { revealed=1f }
+    val animated by animateFloatAsState(progress*revealed,
+        animationSpec=tween(if(reduceMotion) 0 else 880),label="NetPusula")
     Box(Modifier.fillMaxWidth().height(209.dp),contentAlignment=Alignment.Center) {
         Canvas(Modifier.size(208.dp).semantics {
             contentDescription = "${LocalData.net(net)} net, $maxValue soruda"
@@ -368,8 +370,10 @@ private fun SpeedGauge(net:Double, limit:Int, reduceMotion:Boolean) {
 @Composable
 private fun DistributionDonut(correct:Int, wrong:Int, blank:Int, reduceMotion:Boolean) {
     val total=max(1,correct+wrong+blank)
-    val completion by animateFloatAsState(1f,animationSpec=tween(if(reduceMotion) 0 else 540),
-        label="Distribution")
+    var revealed by remember(correct,wrong,blank) { mutableFloatStateOf(0f) }
+    LaunchedEffect(correct,wrong,blank) { revealed=1f }
+    val completion by animateFloatAsState(revealed,
+        animationSpec=tween(if(reduceMotion) 0 else 540),label="Distribution")
     Box(Modifier.size(79.dp),contentAlignment=Alignment.Center) {
         Canvas(Modifier.fillMaxSize().padding(7.dp).semantics {
             contentDescription = "$correct doğru, $wrong yanlış, $blank boş"
@@ -398,8 +402,10 @@ private fun ModernTrendChart(exams:List<ExamRecord>,reduceMotion:Boolean) {
     val v=exams.map{it.net.toFloat()}
     val lo=(v.minOrNull() ?: 0f)-3f
     val hi=(v.maxOrNull() ?: 1f)+3f
-    val fraction by animateFloatAsState(1f,animationSpec=tween(if(reduceMotion) 0 else 700),
-        label="NetTrendReveal")
+    var revealed by remember(exams.map { it.id }) { mutableFloatStateOf(0f) }
+    LaunchedEffect(exams.map { it.id }) { revealed=1f }
+    val fraction by animateFloatAsState(revealed,
+        animationSpec=tween(if(reduceMotion) 0 else 700),label="NetTrendReveal")
     Canvas(Modifier.fillMaxWidth().height(145.dp).semantics{
         contentDescription = "Net gelişimi: "+exams.joinToString(", "){LocalData.net(it.net)}
     }) {
@@ -412,13 +418,18 @@ private fun ModernTrendChart(exams:List<ExamRecord>,reduceMotion:Boolean) {
             drawLine(Border,Offset(left,y),Offset(right,y),strokeWidth=1.dp.toPx())
         }
         val plot=Path()
-        v.forEachIndexed{index,value->
+        v.forEachIndexed { index,value ->
             val x=left+(right-left)*index/(v.size-1).toFloat()
             val y=bottom-(bottom-top)*(value-lo)/(hi-lo).coerceAtLeast(1f)
             if(index==0)plot.moveTo(x,y) else plot.lineTo(x,y)
-            drawCircle(Black,2.7.dp.toPx(),Offset(x,y))
         }
-        drawPath(plot,Black,style=Stroke(width=2.5.dp.toPx(),cap=StrokeCap.Round))
+        drawPath(plot,Black,style=Stroke(width=2.5.dp.toPx(),cap=StrokeCap.Round),
+            alpha=fraction)
+        v.forEachIndexed { index,value ->
+            val x=left+(right-left)*index/(v.size-1).toFloat()
+            val y=bottom-(bottom-top)*(value-lo)/(hi-lo).coerceAtLeast(1f)
+            drawCircle(Black,2.7.dp.toPx(),Offset(x,y),alpha=fraction)
+        }
     }
     Spacer(Modifier.height(3.dp))
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -457,8 +468,10 @@ private fun SubjectLossLine(subject:SubjectInsight,reduceMotion:Boolean) {
 
 @Composable
 private fun TinySubjectRing(progress:Float,reduceMotion:Boolean) {
-    val value by animateFloatAsState(progress,animationSpec=tween(if(reduceMotion)0 else 500),
-        label="SubjectGauge")
+    var revealed by remember(progress) { mutableFloatStateOf(0f) }
+    LaunchedEffect(progress) { revealed=1f }
+    val value by animateFloatAsState(progress*revealed,
+        animationSpec=tween(if(reduceMotion)0 else 500),label="SubjectGauge")
     Canvas(Modifier.size(57.dp).padding(5.dp)) {
         val sw=5.5.dp.toPx()
         drawArc(Pale,-90f,360f,false,style=Stroke(sw,cap=StrokeCap.Round))
