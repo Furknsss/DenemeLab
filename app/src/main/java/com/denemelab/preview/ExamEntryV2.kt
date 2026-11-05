@@ -250,7 +250,7 @@ private fun ScoreInputRow(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            Text(if (countsValid) "Boş: ${questions - c!! - w!!}   ·   Net: ${LocalData.net(ExamRules.net(c, w))}"
+            Text(if (countsValid) "Boş: ${questions - c!! - w!!}   ·   Net: ${LocalData.net(ExamRules.net(c!!, w!!))}"
                 else "Doğru + yanlış toplamı soru sayısını aşamaz.",
                 fontSize = 11.sp, color = SecondaryInk)
         }
