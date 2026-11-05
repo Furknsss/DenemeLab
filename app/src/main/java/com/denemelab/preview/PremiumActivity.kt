@@ -57,6 +57,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 private val Ink = Color(0xFF111111)
@@ -91,6 +94,9 @@ class PremiumActivity : ComponentActivity() {
 @Composable
 private fun DenemeLabApp() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val publishers = remember { mutableStateListOf<PublisherBrand>().apply { addAll(PublisherCatalog.list(context)) } }
+    var savingExam by remember { mutableStateOf(false) }
     val exams = remember { mutableStateListOf<ExamRecord>().apply { addAll(LocalData.loadExams(context)) } }
     val questions = remember { mutableStateListOf<QuestionRecord>().apply { addAll(LocalData.loadQuestions(context)) } }
     var target by remember { mutableStateOf(LocalData.loadTarget(context)) }
@@ -171,17 +177,38 @@ private fun DenemeLabApp() {
         }
     }
 
-    if (showAddExam) ExamEntryV2(
-        onDismiss = { showAddExam = false },
-        onSave = { exam ->
-            val updated = listOf(exam) + exams.toList()
-            if (LocalData.saveExams(context, updated)) {
-                exams.add(0, exam)
-                showAddExam = false
-                tab = 1
-                generalMode = exam.category
-            } else {
-                Toast.makeText(context, "Deneme cihazına kaydedilemedi. Lütfen yeniden dene.", Toast.LENGTH_LONG).show()
+    if (showAddExam) ExamEntryV3(
+        publishers = publishers,
+        isSaving = savingExam,
+        onDismiss = { if (!savingExam) showAddExam = false },
+        onSave = { submission ->
+            if (!savingExam) {
+                savingExam = true
+                scope.launch {
+                    val outcome = withContext(Dispatchers.IO) {
+                        runCatching {
+                            // Saving a new publisher logo is independent from
+                            // exam history; past exams are never rewritten.
+                            PublisherCatalog.upsert(
+                                context, submission.exam.publisher, submission.newPublisherLogo
+                            )
+                            LocalData.saveExams(context, listOf(submission.exam) + exams.toList())
+                        }
+                    }
+                    savingExam = false
+                    if (outcome.getOrNull() == true) {
+                        publishers.clear()
+                        publishers.addAll(PublisherCatalog.list(context))
+                        exams.add(0, submission.exam)
+                        showAddExam = false
+                        tab = 1
+                        generalMode = submission.exam.category
+                    } else {
+                        Toast.makeText(context,
+                            outcome.exceptionOrNull()?.message ?: "Deneme kaydedilemedi.",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         })
 
@@ -471,7 +498,7 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
         Spacer(Modifier.height(11.dp))
         Muted("PDF seçici çalışır. Otomatik optik okuma sonraki aşamada etkinleşecek.")
         Spacer(Modifier.height(26.dp))
-        val filtered = exams.filter { it.category == mode }.sortedByDescending { it.createdAt }
+        val filtered = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
         SectionTitle(if (mode == "Genel") "Genel denemelerim" else "Branş denemelerim")
         if (filtered.isEmpty()) {
             BlankState("Burada henüz kayıt yok", "İlk " + mode.lowercase(Locale("tr", "TR")) +
@@ -482,12 +509,21 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
                     shape = RoundedCornerShape(20.dp), color = Color.White,
                     border = androidx.compose.foundation.BorderStroke(1.dp, Line)) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (exam.publisher.isNotBlank()) {
+                            PublisherLogo(exam.publisher, size = 47.dp)
+                            Spacer(Modifier.width(12.dp))
+                        }
                         Column(Modifier.weight(1f)) {
+                            if (exam.publisher.isNotBlank()) {
+                                Text(exam.publisher, color = Grey, fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(5.dp))
+                            }
                             Text(exam.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Ink,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(7.dp))
                             Muted(exam.examType + (if (exam.subject.isNotBlank()) " · " + exam.subject else "") +
-                                " · " + LocalData.date(exam.createdAt))
+                                " · " + LocalData.date(exam.examDate))
                             Spacer(Modifier.height(7.dp))
                             Muted(exam.correct.toString() + " D  ·  " + exam.wrong + " Y  ·  " + exam.blank + " B")
                         }
