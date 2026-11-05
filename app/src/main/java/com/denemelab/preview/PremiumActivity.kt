@@ -423,7 +423,7 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
                        onAdd: () -> Unit, onNavigate: (Int) -> Unit) {
     ScrollScreen {
         Headline("Genel Bakış", "Netlerin, odağın ve bir sonraki adımın.")
-        val generals = exams.filter { it.category == "Genel" }.sortedByDescending { it.createdAt }
+        val generals = exams.filter { it.category == "Genel" }.sortedByDescending { it.examDate }
         val last = generals.firstOrNull()
         if (last == null) {
             BlankState("İlk denemenle başla",
@@ -447,7 +447,7 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
             Spacer(Modifier.height(16.dp))
             SectionTitle("Net eğilimi")
             PremiumCard(Modifier.fillMaxWidth()) {
-                TrendChart(generals.filter { ExamRules.comparable(it, last) }.sortedBy { it.createdAt }, 145)
+                TrendChart(generals.filter { ExamRules.comparable(it, last) }.sortedBy { it.examDate }, 145)
             }
             Spacer(Modifier.height(18.dp))
             PrimaryAction("Yeni deneme ekle", onAdd)
@@ -546,7 +546,7 @@ private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
     ScrollScreen {
         Headline("Analiz", "Sayılardan öğren, bir sonraki adımı gör.")
         CategoryPicker(mode, onMode)
-        val selected = exams.filter { it.category == mode }.sortedByDescending { it.createdAt }
+        val selected = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
         val last = selected.firstOrNull()
         if (last == null) {
             BlankState("Analiz için deneme gerekiyor",
@@ -575,7 +575,7 @@ private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
             PremiumCard(Modifier.fillMaxWidth()) {
                 Muted("Aynı türden kayıtların zaman içindeki netleri")
                 Spacer(Modifier.height(11.dp))
-                TrendChart(selected.filter { ExamRules.comparable(it, last) }.sortedBy { it.createdAt }, 150)
+                TrendChart(selected.filter { ExamRules.comparable(it, last) }.sortedBy { it.examDate }, 150)
             }
             Spacer(Modifier.height(22.dp))
             if (last.parts.isNotEmpty()) {
@@ -671,8 +671,8 @@ private fun TrendChart(exams: List<ExamRecord>, height: Int) {
     }
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Muted(LocalData.date(exams.first().createdAt))
-        Muted(LocalData.date(exams.last().createdAt))
+        Muted(LocalData.date(exams.first().examDate))
+        Muted(LocalData.date(exams.last().examDate))
     }
 }
 
@@ -684,7 +684,7 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
     ScrollScreen {
         Headline("İlerlemem", "Ay ay gelişimin ve hedefin bir arada.")
         CategoryPicker(mode, onMode)
-        val selected = exams.filter { it.category == mode }.sortedBy { it.createdAt }
+        val selected = exams.filter { it.category == mode }.sortedBy { it.examDate }
         val latest = selected.lastOrNull()
         val comparable = if (latest == null) emptyList() else selected.filter {
             ExamRules.comparable(it, latest)
@@ -696,11 +696,11 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
         } else {
             Muted("Karşılaştırılan sınav: " + latest!!.examType + if (mode == "Branş") " · " + latest.subject else "")
             Spacer(Modifier.height(11.dp))
-            val groups = comparable.groupBy { LocalData.monthKey(it.createdAt) }
+            val groups = comparable.groupBy { LocalData.monthKey(it.examDate) }
             PremiumCard(Modifier.fillMaxWidth()) {
                 groups.forEach { (_, items) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(LocalData.month(items.first().createdAt), Modifier.weight(1f),
+                        Text(LocalData.month(items.first().examDate), Modifier.weight(1f),
                             color = Grey, fontSize = 13.sp)
                         Text(LocalData.net(items.map { it.net }.average()) + " net",
                             color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
