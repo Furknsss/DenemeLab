@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Vector traced from the previously approved DenemeLab black D + rising bars concept. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
     <path android:fillColor="#FFFFFFFF"
         android:pathData="M0,0 L108,0 L108,108 L0,108 Z"/>
-    <!-- Pure black D with negative-space bowl, based on the approved D + rising-bars direction. -->
-    <path android:fillColor="#FF111111"
-        android:fillType="evenOdd"
-        android:pathData="M22,17 L49,17 C75,17 90,31 90,54 C90,77 74,91 49,91 L22,91 Z M36,31 L36,77 L49,77 C66,77 76,69 76,54 C76,39 66,31 49,31 Z"/>
-    <path android:fillColor="#FF111111"
-        android:pathData="M43,61 L50,61 L50,70 L43,70 Z M53,54 L60,54 L60,70 L53,70 Z M63,46 L70,46 L70,70 L63,70 Z"/>
+    <path android:fillType="evenOdd"
+        android:fillColor="#FF050505"
+        android:pathData="M23.89,22.13 L23.24,22.91 L23.37,85.22 L24.41,85.87 L55.82,85.87 L58.95,85.61 L62.34,84.96 L67.03,83.26 L70.95,81.05 L73.94,78.7 L78.37,73.75 L81.76,67.75 L83.72,61.76 L84.63,54.85 L84.24,47.94 L82.68,41.68 L80.07,36.21 L76.68,31.65 L73.55,28.65 L69.38,25.78 L65.21,23.82 L60.65,22.52 L56.22,22.0 Z M33.8,32.3 L55.3,32.3 L57.91,32.69 L60.91,33.6 L64.17,35.3 L66.12,36.73 L69.25,39.99 L71.86,44.42 L72.9,47.42 L73.68,52.11 L73.55,56.8 L72.77,60.71 L70.55,65.93 L68.47,68.92 L65.73,71.66 L61.69,74.14 L56.87,75.44 L33.67,75.44 Z"/>
+    <path android:fillColor="#FF050505"
+        android:pathData="M38.23,61.89 L37.58,62.54 L37.19,63.58 L37.19,72.97 L45.14,72.97 L45.01,62.93 L44.09,61.89 L43.18,61.49 L39.27,61.49 Z"/>
+    <path android:fillColor="#FF050505"
+        android:pathData="M49.18,55.37 L48.13,56.15 L47.74,56.93 L47.74,72.97 L55.56,72.84 L55.56,56.93 L54.78,55.76 L53.61,55.24 Z"/>
+    <path android:fillColor="#FF050505"
+        android:pathData="M64.43,47.16 L59.87,47.16 L58.56,48.07 L58.17,48.98 L58.17,72.44 L60.0,72.05 L62.86,70.62 L64.43,69.45 L66.12,67.62 L66.12,49.24 L65.6,47.94 Z"/>
 </vector>
