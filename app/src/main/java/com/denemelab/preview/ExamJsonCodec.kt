@@ -28,6 +28,14 @@ object ExamJsonCodec {
                     .put("reason", issue.reason).put("provenance", issue.provenance))
             }
             record.put("topicIssues", issues)
+            val outcomes = JSONArray()
+            exam.topicOutcomes.forEach { o ->
+                outcomes.put(JSONObject().put("lessonKey",o.lessonKey)
+                    .put("lessonName",o.lessonName).put("topic",o.topic)
+                    .put("correct",o.correct).put("wrong",o.wrong)
+                    .put("blank",o.blank).put("provenance",o.provenance))
+            }
+            record.put("topicOutcomes",outcomes)
             val parts = JSONArray()
             exam.parts.forEach { subject ->
                 parts.put(JSONObject()
@@ -65,6 +73,15 @@ object ExamJsonCodec {
                         )
                     }.getOrNull()
                 }
+                val outcomeArray = record.optJSONArray("topicOutcomes") ?: JSONArray()
+                val outcomes = (0 until outcomeArray.length()).mapNotNull { j ->
+                    runCatching {
+                        val o = outcomeArray.getJSONObject(j)
+                        TopicOutcome(o.getString("lessonKey"),o.optString("lessonName"),
+                            o.getString("topic"),o.getInt("correct"),o.getInt("wrong"),
+                            o.getInt("blank"),o.optString("provenance","Belge OCR"))
+                    }.getOrNull()
+                }
                 val exam = ExamRecord(
                     id = record.getLong("id"), name = record.optString("name"),
                     category = record.optString("category", "Genel"),
@@ -82,7 +99,8 @@ object ExamJsonCodec {
                         else record.getLong("createdAt"),
                     mood = record.optString("mood", "Normal"),
                     source = record.optString("source", "Manuel"),
-                    topicIssues = issues
+                    topicIssues = issues,
+                    topicOutcomes = outcomes
                 )
                 // A broken part table must not contaminate analyses.
                 // Do not invent missing parts on legacy totals.
@@ -91,14 +109,15 @@ object ExamJsonCodec {
                         parts.sumOf { it.correct } != exam.correct ||
                         parts.sumOf { it.wrong } != exam.wrong ||
                         parts.sumOf { it.blank } != exam.blank)
-                ) exam.copy(parts = emptyList(), topicIssues = emptyList())
+                ) exam.copy(parts = emptyList(), topicIssues = emptyList(), topicOutcomes = emptyList())
                 else {
                     val branchScore = if (exam.category == "Branş")
                         SubjectScore("branch", exam.subject, exam.correct + exam.wrong + exam.blank,
                             exam.correct, exam.wrong) else null
-                    if (TopicBreakdown.validate(exam.topicIssues, exam.parts, branchScore) != null)
-                        exam.copy(topicIssues = emptyList())
-                    else exam
+                    val validIssues = TopicBreakdown.validate(exam.topicIssues, exam.parts, branchScore) == null
+                    val safe = if (validIssues) exam else exam.copy(topicIssues = emptyList())
+                    if (TopicAnalyticsV3.validOutcomes(safe.topicOutcomes, safe.parts)) safe
+                    else safe.copy(topicOutcomes = emptyList())
                 }
             }.getOrNull()
         }.sortedByDescending { it.createdAt }
