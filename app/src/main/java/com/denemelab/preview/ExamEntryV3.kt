@@ -76,6 +76,7 @@ fun ExamEntryV3(
     var branchCorrect by remember { mutableIntStateOf(0) }
     var branchWrong by remember { mutableIntStateOf(0) }
     var mood by remember { mutableStateOf("Normal") }
+    var difficulty by remember { mutableStateOf("Belirtilmedi") }
 
     // The date is local calendar midnight; createdAt remains the insertion time.
     val now = remember { Calendar.getInstance() }
@@ -464,6 +465,9 @@ fun ExamEntryV3(
                         Text(issueError, color = Color(0xFFB42318), fontSize = 11.sp)
                     }
                     Spacer(Modifier.height(23.dp))
+                    DifficultyPicker(selected = difficulty,
+                        onSelected = { difficulty = it })
+                    Spacer(Modifier.height(21.dp))
                     Text("Deneme modu", color = Black, fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
@@ -502,6 +506,7 @@ fun ExamEntryV3(
                                 track = if (examCategory == "Genel" && examType == "AYT") track else "",
                                 parts = if (examCategory == "Genel") parts else emptyList(),
                                 publisher = publisherName.trim(), examDate = examDate, mood = mood,
+                                difficulty = difficulty,
                                 topicIssues = issueItems.toList(),
                                 topicOutcomes = if (selectedMethod == "Fotoğraf ile Ekle" &&
                                     successEvidenceValid) successItems.toList() else emptyList(),
