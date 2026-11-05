@@ -98,7 +98,7 @@ fun ExamDetailsV2(exam: ExamRecord, onDismiss: () -> Unit) {
                             color = MutedBlack, fontSize = 12.sp)
                     }
                     Spacer(Modifier.height(20.dp))
-                    Text("Kayıt tarihi: ${LocalData.date(exam.createdAt)}", color = MutedBlack, fontSize = 11.sp)
+                    Text("Kayıt tarihi: ${LocalData.date(exam.examDate)}", color = MutedBlack, fontSize = 11.sp)
                 }
                 HorizontalDivider(color = LightBorder)
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
