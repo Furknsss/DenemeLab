@@ -104,6 +104,17 @@ class DetailedReportOcrTest {
         assertTrue(result.warnings.any { it.contains("okunamadı") })
     }
 
+    @Test fun tinyMissingPercentageCanBeReconstructedButIsFlagged() {
+        val result = DetailedReportReconciliation.reconcile(
+            left.joinToString("\n"), left,
+            listOf("TYT Türkçe", "Sözcükte Anlam İlişkileri 2 1 1"))
+        assertTrue(result.outcomes.any {
+            it.topic == "Sözcükte Anlam İlişkileri" &&
+            it.correct == 1 && it.wrong == 1 && it.blank == 0
+        })
+        assertTrue(result.warnings.any { it.contains("B% sütunu okunamadı") })
+    }
+
     @Test fun optionalPhilosophyIsNeverMixedInto120Questions() {
         val result = DetailedReportReconciliation.reconcile(
             left.joinToString("\n"), left,
