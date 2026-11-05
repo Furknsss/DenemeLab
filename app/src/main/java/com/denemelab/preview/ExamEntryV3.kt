@@ -384,8 +384,13 @@ fun ExamEntryV3(
                                                     Spacer(Modifier.height(8.dp))
                                                     if (selectedMethod == "Fotoğraf ile Ekle" &&
                                                         verifiedKeys[lesson.key] != true) {
-                                                        Text("Bu ders henüz doğrulanmadı; sürgüleri kontrol ederek düzelt.",
+                                                        Text("Bu ders OCR ile okunamadı; rakamları kontrol edip doğrula.",
                                                             color = Color(0xFFB42318), fontSize = 10.sp)
+                                                        TextButton(onClick = {
+                                                            verifiedKeys[lesson.key] = true
+                                                        }) {
+                                                            Text("Bu dersi kontrol ettim", color = Black, fontSize = 11.sp)
+                                                        }
                                                     }
                                                     LessonIssueButtons(
                                                         lesson = SubjectScore(lesson.key, lesson.title,
