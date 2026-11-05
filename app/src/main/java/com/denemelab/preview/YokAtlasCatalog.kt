@@ -139,7 +139,7 @@ object YokAtlasCatalog {
                 val content = raw.optJSONArray("content") ?: JSONArray()
                 for (i in 0 until content.length()) {
                     val record = content.optJSONObject(i) ?: continue
-                    parseProgram(record)?.let { all.add(it) }
+                    parseProgramRecord(record)?.let { all.add(it) }
                 }
                 total += raw.optInt("totalElements", all.size)
                 if (raw.has("yil") && !raw.isNull("yil")) year = raw.optInt("yil")
@@ -159,7 +159,7 @@ object YokAtlasCatalog {
             .put("direction", "ASC")
         val response = jsonRequest("/api/tercih-kilavuz/search", body)
         val first = response.optJSONArray("content")?.optJSONObject(0) ?: return@withContext null
-        parseProgram(first)?.takeIf { it.code == code }
+        parseProgramRecord(first)?.takeIf { it.code == code }
     }
 
     suspend fun lastPlacedNets(program: AtlasProgram): List<AtlasNet> = withContext(Dispatchers.IO) {
@@ -211,7 +211,7 @@ object YokAtlasCatalog {
         .put("minBasariSirasi", JSONObject.NULL)
         .put("maxBasariSirasi", JSONObject.NULL)
 
-    private fun parseProgram(v: JSONObject): AtlasProgram? {
+    internal fun parseProgramRecord(v: JSONObject): AtlasProgram? {
         val code = numberLong(v, "kilavuzKodu") ?: return null
         val year = numberInt(v, "yil") ?: 0
         val historical = (0..3).mapNotNull { offset ->
@@ -242,7 +242,7 @@ object YokAtlasCatalog {
     }
 
     private fun numberInt(v: JSONObject, key: String): Int? =
-        numberLong(v, key)?.takeIf { it in Int.MIN_VALUE..Int.MAX_VALUE }?.toInt()
+        numberLong(v, key)?.takeIf { it >= Int.MIN_VALUE.toLong() && it <= Int.MAX_VALUE.toLong() }?.toInt()
 
     private fun numberLong(v: JSONObject, key: String): Long? =
         if (!v.has(key) || v.isNull(key)) null
