@@ -1,0 +1,97 @@
+name: DenemeLab v0.7.1 analysis emulator QA
+on:
+  push:
+    branches: [qa/analysis-insights-v071-emulator]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install build tools
+        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+      - name: Compile identical source revision
+        run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
+      - name: Generate true TYT exam fixtures for analysis rendering
+        run: |
+          mkdir -p qa
+          python3 - <<'PY'
+          import json, html
+          parts=[
+            ("tyt_turkce","Türkçe",40,32,6),
+            ("tyt_sosyal","Sosyal Bilimler",20,16,4),
+            ("tyt_matematik","Temel Matematik",40,20,3),
+            ("tyt_fen","Fen Bilimleri",20,10,9)
+          ]
+          exams=[]
+          for i,day in enumerate([1793491200000,1793577600000,1793664000000]):
+              scores=[dict(key=k,title=n,questions=q,correct=c+i,wrong=max(0,w-i))
+                  for k,n,q,c,w in parts]
+              d=sum(p['correct'] for p in scores)
+              w=sum(p['wrong'] for p in scores)
+              exams.append(dict(id=i+1,name=f"3D TYT Test {i+1}",category="Genel",
+                  examType="TYT",subject="",correct=d,wrong=w,blank=120-d-w,
+                  createdAt=day,examDate=day,parts=scores,track="",source="Manuel",
+                  topicIssues=[dict(lessonKey="tyt_turkce",lessonName="Türkçe",
+                      topic="Paragrafta Anlam",kind="Yanlış",count=2,
+                      reason="Bilgi eksikliği",provenance="Manuel")]))
+          raw=json.dumps(exams,ensure_ascii=False,separators=(',',':'))
+          xml='<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n<string name="exams">'+html.escape(raw,quote=True)+'</string>\n</map>\n'
+          open('qa/denemelab_local_v1.xml','w',encoding='utf-8').write(xml)
+          PY
+      - name: Android 35 analysis tab smoke test with seeded real data
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 2048M
+          heap-size: 512M
+          disable-animations: true
+          script: |
+            set -e
+            adb install app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.denemelab.preview/.PremiumActivity | tee qa/launch.txt
+            adb shell am force-stop com.denemelab.preview
+            adb push qa/denemelab_local_v1.xml /data/local/tmp/denemelab_local_v1.xml
+            adb shell run-as com.denemelab.preview mkdir -p shared_prefs
+            adb shell run-as com.denemelab.preview cp /data/local/tmp/denemelab_local_v1.xml shared_prefs/denemelab_local_v1.xml
+            adb shell am start -W -n com.denemelab.preview/.PremiumActivity
+            sleep 6
+            adb shell uiautomator dump /sdcard/denemelab-view.xml
+            adb pull /sdcard/denemelab-view.xml qa/view.xml
+            python3 -c 'import re,xml.etree.ElementTree as ET; root=ET.parse("qa/view.xml"); b=[n.get("bounds","") for n in root.iter("node") if n.get("content-desc","")=="Analiz"]; assert b,"Analiz sekmesi bulunamadı"; v=list(map(int,re.findall(r"[0-9]+",b[0]))); open("qa/tap.txt","w").write(str((v[0]+v[2])//2)+" "+str((v[1]+v[3])//2))'
+            adb shell input tap $(cat qa/tap.txt)
+            sleep 5
+            adb shell screencap -p /sdcard/denemelab-analysis.png
+            adb pull /sdcard/denemelab-analysis.png qa/analysis.png
+            adb shell uiautomator dump /sdcard/denemelab-analysis.xml
+            adb pull /sdcard/denemelab-analysis.xml qa/analysis.xml
+            adb logcat -d > qa/logcat.txt
+            adb shell pidof com.denemelab.preview
+            if grep -A 9 'FATAL EXCEPTION' qa/logcat.txt | grep -q 'com.denemelab.preview'; then echo 'App fatal exception'; exit 1; fi
+            python3 -c 'import xml.etree.ElementTree as ET; root=ET.parse("qa/analysis.xml"); t=" ".join((n.get("text","")+" "+n.get("content-desc","")) for n in root.iter("node")); assert "Analiz" in t, "Analysis tab did not open"; assert ("NET PUSULASI" in t or "ÖNCELİKLİ AÇIĞIN" in t), "Expected performance widgets not visible"'
+            test -s qa/analysis.png
+      - name: Preserve screenshots and verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenemeLab-v071-analysis-emulator
+          path: |
+            qa/analysis.png
+            qa/analysis.xml
+            qa/launch.txt
+            qa/tap.txt
+            qa/logcat.txt
+          if-no-files-found: ignore
+          retention-days: 14
