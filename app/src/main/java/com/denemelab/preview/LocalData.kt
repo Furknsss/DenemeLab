@@ -1,0 +1,146 @@
+package com.denemelab.preview
+
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+data class ExamRecord(
+    val id: Long,
+    val name: String,
+    val category: String,
+    val examType: String,
+    val subject: String,
+    val correct: Int,
+    val wrong: Int,
+    val blank: Int,
+    val createdAt: Long
+) {
+    val net: Double get() = ExamRules.net(correct, wrong)
+}
+
+data class QuestionRecord(
+    val id: Long,
+    val title: String,
+    val subject: String,
+    val topic: String,
+    val source: String,
+    val outcome: String,
+    val correctStreak: Int,
+    val createdAt: Long
+) {
+    val completed: Boolean get() = correctStreak >= 2
+}
+
+data class TargetRecord(
+    val university: String = "",
+    val department: String = "",
+    val targetRank: String = "",
+    val schoolGrade: String = ""
+)
+
+object LocalData {
+    private const val PREFS = "denemelab_local_v1"
+    private fun preferences(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    fun loadExams(context: Context): List<ExamRecord> = runCatching {
+        val values = JSONArray(preferences(context).getString("exams", "[]") ?: "[]")
+        (0 until values.length()).map { i ->
+            val v = values.getJSONObject(i)
+            ExamRecord(
+                id = v.getLong("id"),
+                name = v.optString("name"),
+                category = v.optString("category", "Genel"),
+                examType = v.optString("examType", "TYT"),
+                subject = v.optString("subject"),
+                correct = v.getInt("correct"),
+                wrong = v.getInt("wrong"),
+                blank = v.getInt("blank"),
+                createdAt = v.getLong("createdAt")
+            )
+        }.sortedByDescending { it.createdAt }
+    }.getOrElse { emptyList() }
+
+    fun saveExams(context: Context, exams: List<ExamRecord>) {
+        val values = JSONArray()
+        exams.forEach {
+            values.put(JSONObject()
+                .put("id", it.id)
+                .put("name", it.name)
+                .put("category", it.category)
+                .put("examType", it.examType)
+                .put("subject", it.subject)
+                .put("correct", it.correct)
+                .put("wrong", it.wrong)
+                .put("blank", it.blank)
+                .put("createdAt", it.createdAt))
+        }
+        preferences(context).edit().putString("exams", values.toString()).apply()
+    }
+
+    fun loadQuestions(context: Context): List<QuestionRecord> = runCatching {
+        val values = JSONArray(preferences(context).getString("questions", "[]") ?: "[]")
+        (0 until values.length()).map { i ->
+            val v = values.getJSONObject(i)
+            QuestionRecord(
+                id = v.getLong("id"),
+                title = v.optString("title"),
+                subject = v.optString("subject"),
+                topic = v.optString("topic"),
+                source = v.optString("source"),
+                outcome = v.optString("outcome", "Yanlış"),
+                correctStreak = v.optInt("correctStreak", 0),
+                createdAt = v.getLong("createdAt")
+            )
+        }.sortedByDescending { it.createdAt }
+    }.getOrElse { emptyList() }
+
+    fun saveQuestions(context: Context, questions: List<QuestionRecord>) {
+        val values = JSONArray()
+        questions.forEach {
+            values.put(JSONObject()
+                .put("id", it.id)
+                .put("title", it.title)
+                .put("subject", it.subject)
+                .put("topic", it.topic)
+                .put("source", it.source)
+                .put("outcome", it.outcome)
+                .put("correctStreak", it.correctStreak)
+                .put("createdAt", it.createdAt))
+        }
+        preferences(context).edit().putString("questions", values.toString()).apply()
+    }
+
+    fun loadTarget(context: Context): TargetRecord {
+        val p = preferences(context)
+        return TargetRecord(
+            university = p.getString("university", "") ?: "",
+            department = p.getString("department", "") ?: "",
+            targetRank = p.getString("targetRank", "") ?: "",
+            schoolGrade = p.getString("schoolGrade", "") ?: ""
+        )
+    }
+
+    fun saveTarget(context: Context, target: TargetRecord) {
+        preferences(context).edit()
+            .putString("university", target.university)
+            .putString("department", target.department)
+            .putString("targetRank", target.targetRank)
+            .putString("schoolGrade", target.schoolGrade)
+            .apply()
+    }
+
+    fun date(millis: Long): String = SimpleDateFormat("dd MMM yyyy", Locale("tr", "TR"))
+        .format(Date(millis))
+
+    fun month(millis: Long): String = SimpleDateFormat("MMM yyyy", Locale("tr", "TR"))
+        .format(Date(millis))
+
+    fun monthKey(millis: Long): String = SimpleDateFormat("yyyy-MM", Locale.ROOT)
+        .format(Date(millis))
+
+    fun net(value: Double): String = String.format(Locale("tr", "TR"), "%.2f", value)
+}
