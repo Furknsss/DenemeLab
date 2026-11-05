@@ -34,6 +34,29 @@ object ExamStructure {
         SubjectTemplate("tyt_matematik", "Temel Matematik", 40),
         SubjectTemplate("tyt_fen", "Fen Bilimleri", 20)
     )
+    /** Detailed TYT layout used for new entries. Old four-group TYT data
+     * remains valid and visible, preventing migration data loss. */
+    val tytDetailed = listOf(
+        SubjectTemplate("tyt_turkce", "Türkçe", 40),
+        SubjectTemplate("tyt_tarih", "Tarih", 5),
+        SubjectTemplate("tyt_cografya", "Coğrafya", 5),
+        SubjectTemplate("tyt_felsefe", "Felsefe", 5),
+        SubjectTemplate("tyt_din", "Din / Ek Felsefe", 5),
+        SubjectTemplate("tyt_mat", "Matematik", 30),
+        SubjectTemplate("tyt_geo", "Geometri", 10),
+        SubjectTemplate("tyt_fizik", "Fizik", 7),
+        SubjectTemplate("tyt_kimya", "Kimya", 7),
+        SubjectTemplate("tyt_biyoloji", "Biyoloji", 6)
+    )
+    fun subjectsForEntry(examType: String, track: String): List<SubjectTemplate> =
+        if (examType == "TYT") tytDetailed else subjects(examType, track)
+    fun groupName(examType: String, key: String): String = when {
+        examType != "TYT" -> "AYT Alan Dersleri"
+        key == "tyt_turkce" -> "Türkçe"
+        key in listOf("tyt_tarih", "tyt_cografya", "tyt_felsefe", "tyt_din") -> "Sosyal Bilimler"
+        key in listOf("tyt_mat", "tyt_geo") -> "Matematik"
+        else -> "Fen Bilimleri"
+    }
     private val mat = SubjectTemplate("ayt_mat", "Matematik", 40)
     private val physics = SubjectTemplate("ayt_fiz", "Fizik", 14)
     private val chemistry = SubjectTemplate("ayt_kim", "Kimya", 13)
@@ -58,8 +81,14 @@ object ExamStructure {
     }
 
     fun valid(scores: List<SubjectScore>, examType: String, track: String): Boolean {
-        val required = subjects(examType, track)
-        if (required.isEmpty() || scores.size != required.size) return false
+        val standard = subjects(examType, track)
+        val detailed = if (examType == "TYT") tytDetailed else emptyList()
+        val required = when {
+            standard.size == scores.size -> standard
+            detailed.size == scores.size -> detailed
+            else -> emptyList()
+        }
+        if (required.isEmpty()) return false
         return required.zip(scores).all { (template, value) ->
             value.key == template.key &&
                 value.title == template.title &&
