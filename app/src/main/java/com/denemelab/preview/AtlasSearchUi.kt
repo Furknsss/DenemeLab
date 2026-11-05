@@ -233,11 +233,7 @@ private fun AtlasTag(text: String) {
 private fun AtlasResultRow(program: AtlasProgram, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Surface(color = Cloud, shape = RoundedCornerShape(13.dp), modifier = Modifier.size(43.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.School, contentDescription = null, tint = Black, modifier = Modifier.size(20.dp))
-            }
-        }
+        UniversityLogo(program.universityId, program.university, 43.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(program.program, color = Black, fontWeight = FontWeight.SemiBold,
@@ -270,10 +266,19 @@ private fun AtlasProgramDetail(program: AtlasProgram, onChoose: () -> Unit) {
     }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Spacer(Modifier.height(10.dp))
-            Text(program.program, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Black)
-            Spacer(Modifier.height(5.dp))
-            Text(program.university, color = Neutral, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            UniversityCampusBanner(program.universityId, program.university)
+            Spacer(Modifier.height(17.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                UniversityLogo(program.universityId, program.university, 59.dp)
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(program.program, fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                        lineHeight = 24.sp, color = Black)
+                    Spacer(Modifier.height(4.dp))
+                    Text(program.university, color = Neutral, fontSize = 12.sp)
+                }
+            }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AtlasTag(program.scoreType)
@@ -336,6 +341,10 @@ private fun AtlasProgramDetail(program: AtlasProgram, onChoose: () -> Unit) {
                     color = Neutral, fontSize = 11.sp)
             }
             Spacer(Modifier.height(12.dp))
+            UniversityVisualCredits(program.universityId, program.university) { sourcePage ->
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(sourcePage)))
+            }
+            Spacer(Modifier.height(10.dp))
             Surface(onClick = {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://yokatlas.yok.gov.tr/")))
             }, color = Cloud, shape = RoundedCornerShape(14.dp)) {

@@ -2,7 +2,7 @@ name: Android preview APK
 
 on:
   push:
-    branches: [main, feat/yokatlas-profile-target-search]
+    branches: [main, feat/licensed-university-brand-visuals]
   workflow_dispatch:
 
 permissions:
