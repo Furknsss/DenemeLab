@@ -53,7 +53,11 @@ fun AnalysisDashboard(
     reduceMotion: Boolean
 ) {
     var selection by remember(category) { mutableStateOf("") }
-    val available = AnalysisEngine.scopes(exams, category)
+    val allScopes = AnalysisEngine.scopes(exams, category)
+    // Show only exam types the student has actually entered. No empty
+    // TYT/AYT area chips stealing space on the default dashboard.
+    val existingScopes = allScopes.filter { choice -> exams.any(choice::contains) }
+    val available = existingScopes.ifEmpty { allScopes.take(1) }
 
     // Initial selection: most recent recorded exam, not an empty TYT
     // placeholder when the student only has AYT results.
