@@ -20,7 +20,8 @@ data class ExamRecord(
     val track: String = "",
     val parts: List<SubjectScore> = emptyList(),
     val publisher: String = "",
-    val examDate: Long = createdAt
+    val examDate: Long = createdAt,
+    val mood: String = "Normal"
 ) {
     val net: Double get() = ExamRules.net(correct, wrong)
     val hasSubjectDetails: Boolean get() = parts.isNotEmpty()
