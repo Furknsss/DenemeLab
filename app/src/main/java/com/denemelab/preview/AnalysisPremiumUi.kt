@@ -156,6 +156,49 @@ fun AnalysisDashboard(
         }
         Spacer(Modifier.height(23.dp))
 
+        // Put a concrete next step on the first screen, instead of burying it
+        // behind charts. Nothing is invented from exams without topic labels.
+        DashboardCard {
+            Text("ÖNCELİKLİ AÇIĞIN", fontSize = 11.sp, letterSpacing = 1.2.sp,
+                fontWeight = FontWeight.Bold, color = Grey)
+            Spacer(Modifier.height(8.dp))
+            val first = snapshot.priorities.firstOrNull()
+            val loss = AnalysisIntelligence.lossRanking(snapshot.subjectInsights).firstOrNull()
+            if (first != null) {
+                Text(first.label, color = Black, fontSize = 19.sp,
+                    lineHeight = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(5.dp))
+                Text(first.lessonName + " · " + first.recordedExams +
+                    " denemede " + first.total + " kayıtlı yanlış/boş",
+                    color = Grey, fontSize = 12.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("Şimdi yap: " + FocusJournal.plan(first.commonReason).first(),
+                    color = Black, fontSize = 12.sp, lineHeight = 18.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("Konu önceliği gerçek işaretlenen hatalardan hesaplandı.",
+                    fontSize = 10.sp, color = Grey)
+            } else if (loss != null) {
+                Text(loss.lesson, color = Black, fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(5.dp))
+                Text(loss.wrong.toString() + " yanlış · " + loss.blank + " boş",
+                    fontSize = 12.sp, color = Grey)
+                Spacer(Modifier.height(10.dp))
+                Text("İlk adım: " + loss.action, color = Black,
+                    fontSize = 12.sp, lineHeight = 18.sp)
+                Spacer(Modifier.height(7.dp))
+                Text("Konu seçmek için yanlış/boş detaylandırman gerekiyor.",
+                    fontSize = 10.sp, color = Grey)
+            } else {
+                Text("Konularını tanımaya başlayalım", color = Black,
+                    fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Text("Ders bazlı deneme eklersen ilk önceliğin burada belirir.",
+                    color = Grey, fontSize = 12.sp)
+            }
+        }
+        Spacer(Modifier.height(23.dp))
+
         SectionHeader("Net ritmin","Aynı sınav türünde ölçülen gerçek netlerin")
         DashboardCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
