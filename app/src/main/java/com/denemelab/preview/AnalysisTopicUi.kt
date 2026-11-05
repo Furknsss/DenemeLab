@@ -58,7 +58,9 @@ fun TopicOpportunityWorkspace(
     reduceMotion: Boolean,
     onAddExam: () -> Unit
 ) {
-    val data = remember(exams, scope) { TopicAnalyticsV3.analyze(exams, scope) }
+    // Recompute when the SnapshotStateList changes: identity-only memoization
+    // would otherwise keep analytics stale after a newly saved exam.
+    val data = TopicAnalyticsV3.analyze(exams, scope)
     var gainPercent by remember(scope) { mutableFloatStateOf(50f) }
     var selectedLesson by remember(scope) { mutableStateOf("Tümü") }
     var expandedId by remember(scope) { mutableStateOf<String?>(null) }
