@@ -478,7 +478,7 @@ private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
             PremiumCard(Modifier.fillMaxWidth()) {
                 Muted("Aynı türden kayıtların zaman içindeki netleri")
                 Spacer(Modifier.height(11.dp))
-                TrendChart(selected.filter { it.examType == last.examType }.sortedBy { it.createdAt }, 150)
+                TrendChart(selected.filter { it.examType == last.examType && (mode == "Genel" || it.subject.equals(last.subject, ignoreCase = true)) }.sortedBy { it.createdAt }, 150)
             }
             Spacer(Modifier.height(22.dp))
             PremiumCard(Modifier.fillMaxWidth()) {
@@ -503,7 +503,9 @@ private fun ChartLegend(label: String, amount: Int, color: Color) {
 @Composable
 private fun DonutChart(correct: Int, wrong: Int, blank: Int) {
     val total = max(1, correct + wrong + blank).toFloat()
-    val fraction by animateFloatAsState(targetValue = 1f, animationSpec = tween(450), label = "DonutReveal")
+    var reveal by remember(correct, wrong, blank) { mutableFloatStateOf(0f) }
+    LaunchedEffect(correct, wrong, blank) { reveal = 1f }
+    val fraction by animateFloatAsState(targetValue = reveal, animationSpec = tween(450), label = "DonutReveal")
     Box(Modifier.size(147.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize().padding(13.dp).semantics {
             contentDescription = "Doğru " + correct + ", yanlış " + wrong + ", boş " + blank
@@ -570,12 +572,19 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
         Headline("İlerlemem", "Ay ay gelişimin ve hedefin bir arada.")
         CategoryPicker(mode, onMode)
         val selected = exams.filter { it.category == mode }.sortedBy { it.createdAt }
+        val latest = selected.lastOrNull()
+        val comparable = if (latest == null) emptyList() else selected.filter {
+            it.examType == latest.examType &&
+                (mode == "Genel" || it.subject.equals(latest.subject, ignoreCase = true))
+        }
         SectionTitle("Aylık gelişim")
         if (selected.isEmpty()) {
             BlankState("İlk ayın burada başlayacak",
                 "Aylık ortalama netleri gerçek deneme kayıtlarından oluşturacağız.")
         } else {
-            val groups = selected.groupBy { LocalData.monthKey(it.createdAt) }
+            Muted("Karşılaştırılan sınav: " + latest!!.examType + if (mode == "Branş") " · " + latest.subject else "")
+            Spacer(Modifier.height(11.dp))
+            val groups = comparable.groupBy { LocalData.monthKey(it.createdAt) }
             PremiumCard(Modifier.fillMaxWidth()) {
                 groups.forEach { (_, items) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -591,7 +600,7 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
             PremiumCard(Modifier.fillMaxWidth()) {
                 Muted("Deneme bazında net eğilimin")
                 Spacer(Modifier.height(12.dp))
-                TrendChart(selected, 142)
+                TrendChart(comparable, 142)
             }
         }
         Spacer(Modifier.height(25.dp))
