@@ -80,8 +80,9 @@ data class TopicAnalysisV3(
         return min(theoreticalTaggedGain * fraction, capped)
     }
     fun scenarioBySubject(percent: Int): List<Pair<String, Double>> {
-        val fraction = percent.coerceIn(0,100)/100.0
-        return subjects.map { it.name to (it.theoreticalRoomPerExam * fraction) }
+        val ratio = if (theoreticalTaggedGain <= 0.0) 0.0
+            else scenarioGain(percent) / theoreticalTaggedGain
+        return subjects.map { it.name to (it.theoreticalRoomPerExam * ratio) }
     }
 }
 
