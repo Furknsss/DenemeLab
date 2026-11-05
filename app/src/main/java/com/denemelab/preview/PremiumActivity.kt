@@ -141,7 +141,7 @@ private fun DenemeLabApp() {
                                 val index = questions.indexOfFirst { it.id == question.id }
                                 if (index >= 0) {
                                     questions[index] = question.copy(
-                                        correctStreak = if (correct) (question.correctStreak + 1).coerceAtMost(2) else 0
+                                        correctStreak = ExamRules.nextCorrectStreak(question.correctStreak, correct)
                                     )
                                     LocalData.saveQuestions(context, questions)
                                 }
@@ -478,7 +478,7 @@ private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
             PremiumCard(Modifier.fillMaxWidth()) {
                 Muted("Aynı türden kayıtların zaman içindeki netleri")
                 Spacer(Modifier.height(11.dp))
-                TrendChart(selected.filter { it.examType == last.examType && (mode == "Genel" || it.subject.equals(last.subject, ignoreCase = true)) }.sortedBy { it.createdAt }, 150)
+                TrendChart(selected.filter { ExamRules.comparable(it, last) }.sortedBy { it.createdAt }, 150)
             }
             Spacer(Modifier.height(22.dp))
             PremiumCard(Modifier.fillMaxWidth()) {
@@ -574,8 +574,7 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
         val selected = exams.filter { it.category == mode }.sortedBy { it.createdAt }
         val latest = selected.lastOrNull()
         val comparable = if (latest == null) emptyList() else selected.filter {
-            it.examType == latest.examType &&
-                (mode == "Genel" || it.subject.equals(latest.subject, ignoreCase = true))
+            ExamRules.comparable(it, latest)
         }
         SectionTitle("Aylık gelişim")
         if (selected.isEmpty()) {
@@ -718,10 +717,7 @@ private fun ExamEntryDialog(onDismiss: () -> Unit, onSave: (ExamRecord) -> Unit)
     val b = blank.toIntOrNull()
     val total = if (c != null && w != null && b != null) c + w + b else -1
     val expected = if (examType == "TYT") 120 else 80
-    val valid = title.isNotBlank() && c != null && w != null && b != null &&
-        c >= 0 && w >= 0 && b >= 0 && total > 0 &&
-        (category == "Branş" || total == expected) &&
-        (category == "Genel" || subject.isNotBlank())
+    val valid = title.isNotBlank() && ExamRules.validCounts(category, examType, subject, c, w, b)
 
     AlertDialog(
         onDismissRequest = onDismiss,
