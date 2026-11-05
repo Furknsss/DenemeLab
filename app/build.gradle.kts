@@ -10,8 +10,8 @@ android {
         applicationId = "com.denemelab.preview"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -27,5 +27,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.coil.compose)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
 }

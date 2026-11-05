@@ -18,6 +18,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -93,6 +94,13 @@ private fun DenemeLabApp() {
     val exams = remember { mutableStateListOf<ExamRecord>().apply { addAll(LocalData.loadExams(context)) } }
     val questions = remember { mutableStateListOf<QuestionRecord>().apply { addAll(LocalData.loadQuestions(context)) } }
     var target by remember { mutableStateOf(LocalData.loadTarget(context)) }
+    var studentProfile by remember { mutableStateOf(LocalData.loadProfile(context)) }
+    var reduceMotion by remember { mutableStateOf(LocalData.reduceMotion(context)) }
+    var selectedProgram by remember { mutableStateOf<AtlasProgram?>(null) }
+    var showProfileDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showAtlasDialog by remember { mutableStateOf(false) }
+    var openSelectedDetail by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
     var showAddExam by remember { mutableStateOf(false) }
     var showAddQuestion by remember { mutableStateOf(false) }
@@ -101,6 +109,13 @@ private fun DenemeLabApp() {
     var generalMode by remember { mutableStateOf("Genel") }
     var analysisMode by remember { mutableStateOf("Genel") }
     var progressMode by remember { mutableStateOf("Genel") }
+
+    LaunchedEffect(target.programCode) {
+        if (target.programCode > 0) {
+            selectedProgram = try { YokAtlasCatalog.programByCode(target.programCode) }
+                catch (_: Exception) { null }
+        } else selectedProgram = null
+    }
 
     val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -119,13 +134,13 @@ private fun DenemeLabApp() {
     MaterialTheme(colorScheme = palette) {
         Box(Modifier.fillMaxSize().background(Light).statusBarsPadding().navigationBarsPadding()) {
             Column(Modifier.fillMaxSize()) {
-                AppHeader(
-                    selected = tab,
-                    onAddExam = { showAddExam = true },
-                    onAddQuestion = { showAddQuestion = true },
-                    onSettings = { showGoalDialog = true }
+                ProfileTopBar(
+                    title = TABS[tab].title, profile = studentProfile,
+                    showAddExam = tab == 1, showAddQuestion = tab == 4,
+                    onAddExam = { showAddExam = true }, onAddQuestion = { showAddQuestion = true },
+                    onProfile = { showProfileDialog = true }, onSettings = { showSettingsDialog = true }
                 )
-                Crossfade(targetState = tab, animationSpec = tween(190), label = "DenemeLabSection") { selected ->
+                Crossfade(targetState = tab, animationSpec = tween(if (reduceMotion) 0 else 190), label = "DenemeLabSection") { selected ->
                     when (selected) {
                         0 -> HomeScreen(exams, questions, onAdd = { showAddExam = true }, onNavigate = { tab = it })
                         1 -> ExamsScreen(
@@ -135,7 +150,10 @@ private fun DenemeLabApp() {
                             onDetail = { openedExam = it })
                         2 -> AnalysisScreen(exams, analysisMode, onMode = { analysisMode = it }, onAdd = { showAddExam = true })
                         3 -> ProgressScreen(exams, progressMode, onMode = { progressMode = it },
-                            target = target, onGoal = { showGoalDialog = true })
+                            target = target, onGoal = { openSelectedDetail = false; showAtlasDialog = true },
+                            onManualGoal = { showGoalDialog = true },
+                            onInspect = { openSelectedDetail = true; showAtlasDialog = true },
+                            program = selectedProgram)
                         else -> QuestionBankScreen(questions, onAdd = { showAddQuestion = true },
                             onUpdate = { question, correct ->
                                 val index = questions.indexOfFirst { it.id == question.id }
@@ -149,7 +167,7 @@ private fun DenemeLabApp() {
                     }
                 }
             }
-            FloatingDock(tab, onSelect = { tab = it }, Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp))
+            FloatingDock(tab, onSelect = { tab = it }, Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp), reduceMotion)
         }
     }
 
@@ -172,6 +190,45 @@ private fun DenemeLabApp() {
             tab = 4
         })
 
+    if (showProfileDialog) StudentProfileDialog(
+        initial = studentProfile,
+        onDismiss = { showProfileDialog = false },
+        onSave = {
+            studentProfile = it
+            LocalData.saveProfile(context, it)
+            showProfileDialog = false
+        },
+        onPickTarget = {
+            showProfileDialog = false
+            openSelectedDetail = false
+            showAtlasDialog = true
+        }
+    )
+    if (showSettingsDialog) DenemeLabSettingsDialog(
+        reduceMotion = reduceMotion,
+        onMotionChanged = {
+            reduceMotion = it
+            LocalData.saveReduceMotion(context, it)
+        },
+        onDismiss = { showSettingsDialog = false }
+    )
+    if (showAtlasDialog) AtlasSearchDialog(
+        onDismiss = { showAtlasDialog = false; openSelectedDetail = false },
+        initialProgram = if (openSelectedDetail) selectedProgram else null,
+        onChoose = { program ->
+            selectedProgram = program
+            target = target.copy(
+                university = program.university, department = program.program,
+                programCode = program.code, universityType = program.universityType,
+                language = program.language, scholarship = program.scholarship,
+                scoreType = program.scoreType
+            )
+            LocalData.saveTarget(context, target)
+            showAtlasDialog = false
+            openSelectedDetail = false
+            tab = 3
+        }
+    )
     if (showGoalDialog) TargetEntryDialog(
         initial = target,
         onDismiss = { showGoalDialog = false },
@@ -218,7 +275,7 @@ private fun HeaderAction(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, reduceMotion: Boolean = false) {
     Surface(
         modifier = modifier.fillMaxWidth(0.96f).shadow(16.dp, RoundedCornerShape(33.dp)),
         shape = RoundedCornerShape(33.dp), color = Color.White,
@@ -229,7 +286,7 @@ private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modif
             TABS.forEachIndexed { index, entry ->
                 val active = selected == index
                 val dimension by animateDpAsState(
-                    if (active) 57.dp else 47.dp, animationSpec = tween(200), label = "DockIconSize")
+                    if (active) 57.dp else 47.dp, animationSpec = tween(if (reduceMotion) 0 else 200), label = "DockIconSize")
                 Surface(
                     onClick = { onSelect(index) },
                     modifier = Modifier.size(dimension).semantics { contentDescription = entry.title },
@@ -566,7 +623,8 @@ private fun TrendChart(exams: List<ExamRecord>, height: Int) {
 
 @Composable
 private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (String) -> Unit,
-                           target: TargetRecord, onGoal: () -> Unit) {
+                           target: TargetRecord, onGoal: () -> Unit, onManualGoal: () -> Unit,
+                           onInspect: () -> Unit, program: AtlasProgram?) {
     val context = LocalContext.current
     ScrollScreen {
         Headline("İlerlemem", "Ay ay gelişimin ve hedefin bir arada.")
@@ -616,13 +674,56 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
                     fontSize = 13.sp, color = Ink, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.height(18.dp))
-            PrimaryAction("Hedefimi düzenle", onGoal)
+            if (target.programCode > 0L) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf(target.scoreType, target.universityType, target.language, target.scholarship)
+                        .filter { it.isNotBlank() && it != "null" }.forEach { name ->
+                            Surface(color = Pale, shape = CircleShape) {
+                                Text(name, Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = Ink, fontSize = 11.sp)
+                            }
+                        }
+                }
+            }
+            Spacer(Modifier.height(11.dp))
+            PrimaryAction(if (target.programCode > 0) "Hedef bölümümü değiştir" else "Üniversite ve bölüm seç", onGoal)
+            Spacer(Modifier.height(7.dp))
+            TextButton(onClick = onManualGoal) {
+                Text("Kişisel hedef sıralamam ve diploma notum", color = Grey, fontSize = 12.sp)
+            }
         }
         Spacer(Modifier.height(14.dp))
         PremiumCard(Modifier.fillMaxWidth()) {
             Text("Resmî yerleştirme verisi", fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 15.sp)
             Spacer(Modifier.height(10.dp))
-            Muted("YÖK Atlas/ÖSYM program kodu, yıl, taban sıralama, OBP ve son yerleşenin netleri doğrulanmadan otomatik hedef karşılaştırması göstermiyoruz.")
+            if (target.programCode == 0L) {
+                Muted("Hedef programını seçtiğinde yıl etiketli başarı sıralaması, kontenjan ve son yerleşen verileri burada görünecek.")
+            } else if (program == null) {
+                Muted("Seçili programın resmî verilerine şu anda ulaşılamıyor. Bilgileri uydurmuyoruz; bağlantını kontrol edip tekrar deneyebilirsin.")
+                Spacer(Modifier.height(8.dp))
+                Muted("Program kodu: " + target.programCode)
+            } else {
+                val latest = program.current
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Muted("Taban sıralama · " + (latest?.year ?: "—"))
+                        Text(latest?.lastRank?.let { "%,d".format(Locale("tr", "TR"), it) } ?: "Veri yok",
+                            color = Ink, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Muted("Kontenjan · " + (latest?.year ?: "—"))
+                        Text(latest?.quota?.toString() ?: "Veri yok", color = Ink,
+                            fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Surface(onClick = onInspect, shape = RoundedCornerShape(15.dp), color = Pale) {
+                    Text("Yıllık sıralama, OBP ve net ayrıntılarını gör",
+                        color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().padding(13.dp),
+                        textAlign = TextAlign.Center)
+                }
+            }
             Spacer(Modifier.height(15.dp))
             Surface(onClick = {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://yokatlas.yok.gov.tr/")))
@@ -834,7 +935,7 @@ private fun TargetEntryDialog(initial: TargetRecord, onDismiss: () -> Unit, onSa
             }
         },
         confirmButton = { TextButton(onClick = {
-            onSave(TargetRecord(university.trim(), department.trim(), rank.trim(), grade.trim()))
+            onSave(initial.copy(university = university.trim(), department = department.trim(), targetRank = rank.trim(), schoolGrade = grade.trim()))
         }) { Text("Kaydet") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } },
         containerColor = Color.White
