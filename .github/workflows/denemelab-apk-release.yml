@@ -4,6 +4,7 @@ on:
     branches: [fix/apk-release-download]
   workflow_dispatch:
 permissions:
+  actions: read
   contents: write
 concurrency:
   group: denemelab-apk-release
@@ -12,31 +13,25 @@ concurrency:
 jobs:
   publish-test-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
-      - name: Checkout verified app source
-        uses: actions/checkout@v4
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android platform and build tools
-        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
-      - name: Verify unit tests
-        run: bash ./gradlew :app:testDebugUnitTest --no-daemon --no-configuration-cache --max-workers=2
-      - name: Build APK
-        run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
-      - name: Prepare and validate standalone APK
+      - name: Obtain successful original GitHub build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk DenemeLab-v0.4.0-Test.apk
+          mkdir -p downloaded
+          gh run download 41948920276 --name DenemeLab-Android-Preview-APK --dir downloaded
+          test -s downloaded/app-debug.apk
+      - name: Verify exact tested APK and prepare release
+        run: |
+          cp downloaded/app-debug.apk DenemeLab-v0.4.0-Test.apk
           test -s DenemeLab-v0.4.0-Test.apk
           unzip -t DenemeLab-v0.4.0-Test.apk | tail -1
-          sha256sum DenemeLab-v0.4.0-Test.apk | tee DenemeLab-v0.4.0-Test.apk.sha256
           unzip -Z1 DenemeLab-v0.4.0-Test.apk | grep -x 'AndroidManifest.xml'
           unzip -Z1 DenemeLab-v0.4.0-Test.apk | grep -x 'classes.dex'
+          echo '773d89923fe55d9ce759f1061680990be6af1984a72562127252114b83ac68c5  DenemeLab-v0.4.0-Test.apk' | sha256sum --check
+          sha256sum DenemeLab-v0.4.0-Test.apk > DenemeLab-v0.4.0-Test.apk.sha256
       - name: Publish direct downloadable GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,4 +43,4 @@ jobs:
             --target main \
             --title "DenemeLab v0.4.0 - Android test APK" \
             --prerelease \
-            --notes "Download the APK asset below (not the source ZIP). This is a DEBUG-signed test build. Existing locally stored records are not cloud-backed. Do not uninstall an older app with important data. A signing mismatch may prevent updating over a previous test build."
+            --notes "Choose DenemeLab-v0.4.0-Test.apk from Assets. This is a DEBUG-signed test build. Do not uninstall an older version if it contains important local records. Debug signatures might differ."
