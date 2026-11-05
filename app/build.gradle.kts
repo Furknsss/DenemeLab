@@ -29,4 +29,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.coil.compose)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
 }
