@@ -47,34 +47,17 @@ jobs:
             adb pull /sdcard/denemelab-home.png qa/home.png
             adb shell uiautomator dump /sdcard/denemelab-view.xml
             adb pull /sdcard/denemelab-view.xml qa/view.xml
-            python3 - <<'PY'
-            import re, xml.etree.ElementTree as E
-            root = E.parse('qa/view.xml')
-            targets = [node for node in root.iter('node') if node.get('content-desc','') == 'Analiz']
-            if targets:
-                m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', targets[0].get('bounds',''))
-                if m:
-                    x1,y1,x2,y2 = map(int,m.groups())
-                    open('qa/tap.txt','w').write(f'{(x1+x2)//2} {(y1+y2)//2}')
-            PY
-            if test -f qa/tap.txt; then
-              adb shell input tap $(cat qa/tap.txt)
-            else
-              size=$(adb shell wm size | tail -1 | tr -dc '0-9x')
-              width=${size%x*}
-              height=${size#*x}
-              adb shell input tap $((width/2)) $((height-155))
-            fi
+            python3 -c 'import re,xml.etree.ElementTree as ET; root=ET.parse("qa/view.xml"); items=[n.get("bounds","") for n in root.iter("node") if n.get("content-desc","")=="Analiz"]; assert items,"Analiz sekmesi bulunamadı"; v=list(map(int,re.findall(r"[0-9]+",items[0]))); open("qa/tap.txt","w").write(str((v[0]+v[2])//2)+" "+str((v[1]+v[3])//2))'
+            adb shell input tap $(cat qa/tap.txt)
             sleep 5
             adb shell screencap -p /sdcard/denemelab-analysis.png
             adb pull /sdcard/denemelab-analysis.png qa/analysis.png
             adb shell uiautomator dump /sdcard/denemelab-analysis.xml
             adb pull /sdcard/denemelab-analysis.xml qa/analysis.xml
             adb logcat -d > qa/logcat.txt
-            if grep -A 9 'FATAL EXCEPTION' qa/logcat.txt | grep -q 'com.denemelab.preview'; then
-              echo 'App fatal exception in emulator'
-              exit 1
-            fi
+            adb shell pidof com.denemelab.preview
+            if grep -A 9 'FATAL EXCEPTION' qa/logcat.txt | grep -q 'com.denemelab.preview'; then echo 'App fatal exception in emulator'; exit 1; fi
+            grep -E 'Henüz karşılaştırılabilir|NET PUSULASI|Analiz' qa/analysis.xml | head -c 600 || true
             grep -E 'Analiz|NET PUSULASI|Net Pusulası|deneme' qa/analysis.xml | head -c 400 || true
             test -s qa/analysis.png
       - name: Preserve UI QA evidence
