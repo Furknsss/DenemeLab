@@ -21,7 +21,9 @@ data class ExamRecord(
     val parts: List<SubjectScore> = emptyList(),
     val publisher: String = "",
     val examDate: Long = createdAt,
-    val mood: String = "Normal"
+    val mood: String = "Normal",
+    val topicIssues: List<ExamTopicIssue> = emptyList(),
+    val source: String = "Manuel"
 ) {
     val net: Double get() = ExamRules.net(correct, wrong)
     val hasSubjectDetails: Boolean get() = parts.isNotEmpty()
