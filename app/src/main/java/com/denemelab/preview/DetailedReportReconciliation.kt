@@ -17,6 +17,10 @@ object DetailedReportReconciliation {
         """(?:^|\s)(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,3})\s*%?\s*$"""
     )
 
+    private val partialColumns = Regex(
+        """^(.{7,175}?)\\s+(\\d{1,2})\\s+(\\d{1,2})\\s+(\\d{1,2})\\s*$"""
+    )
+
     /**
      * [leftRows] are independently recognised from the top/left table.
      * [rightRows] are independently recognised from high-resolution right
@@ -50,12 +54,25 @@ object DetailedReportReconciliation {
 
         val validatedRight = mutableListOf<String>()
         var suspectNumericLines = 0
+        var recoveredWithoutPercent = 0
         var detectedRows = 0
         for (row in rightRows) {
             val trimmed = row.trim()
             val columns = finalColumns.find(trimmed)
             if (columns == null) {
-                validatedRight += trimmed
+                // A tiny B% glyph may disappear while S/D/Y remain.
+                // Salvage the counts, but explicitly ask the user to check.
+                val partial = partialColumns.matchEntire(trimmed)
+                val s = partial?.groupValues?.get(2)?.toIntOrNull()
+                val d = partial?.groupValues?.get(3)?.toIntOrNull()
+                val w = partial?.groupValues?.get(4)?.toIntOrNull()
+                if (s != null && d != null && w != null &&
+                    s in 1..40 && d in 0..s && w in 0..s && d + w <= s) {
+                    val percentage = (100.0 * d / s).roundToInt()
+                    validatedRight += "${partial.groupValues[1]} $s $d $w $percentage"
+                    recoveredWithoutPercent++
+                    detectedRows++
+                } else validatedRight += trimmed
                 continue
             }
             val (s,d,y,pct) = columns.groupValues.drop(1).mapNotNull { it.toIntOrNull() }
@@ -76,6 +93,8 @@ object DetailedReportReconciliation {
         }
         if (suspectNumericLines > 0)
             warnings.add("$suspectNumericLines kazanım satırında sütunlar tutarsız; doğrulama gerekli.")
+        if (recoveredWithoutPercent > 0)
+            warnings.add("$recoveredWithoutPercent kazanımın B% sütunu okunamadı; hesaplanan yüzdeyi kontrol et.")
 
         // The legacy parser validates right-hand topic totals against the
         // left-hand lesson table. Supply those lines in the same pass, or a
