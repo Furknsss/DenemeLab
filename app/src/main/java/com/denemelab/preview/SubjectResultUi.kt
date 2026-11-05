@@ -27,7 +27,11 @@ private val GreyTrack = androidx.compose.ui.graphics.Color(0xFFEDEDED)
 private val LightBorder = androidx.compose.ui.graphics.Color(0xFFEAEAEA)
 
 @Composable
-fun SubjectBreakdownSection(parts: List<SubjectScore>, reduceMotion: Boolean = false) {
+fun SubjectBreakdownSection(
+    parts: List<SubjectScore>,
+    reduceMotion: Boolean = false,
+    issues: List<ExamTopicIssue> = emptyList()
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         parts.forEach { score ->
             val normalized = (score.net / score.questions.toDouble()).toFloat().coerceIn(0f, 1f)
@@ -47,6 +51,11 @@ fun SubjectBreakdownSection(parts: List<SubjectScore>, reduceMotion: Boolean = f
                 Spacer(Modifier.height(5.dp))
                 Text("${score.correct} doğru  ·  ${score.wrong} yanlış  ·  ${score.blank} boş  ·  ${score.questions} soru",
                     fontSize = 11.sp, color = MutedBlack)
+                issues.filter { it.lessonKey == score.key }.forEach { issue ->
+                    Spacer(Modifier.height(5.dp))
+                    Text("• ${issue.topic} · ${issue.count} ${issue.kind.lowercase()} · ${issue.reason}",
+                        fontSize = 11.sp, color = MutedBlack, lineHeight = 15.sp)
+                }
             }
         }
     }
@@ -89,7 +98,7 @@ fun ExamDetailsV2(exam: ExamRecord, onDismiss: () -> Unit) {
                         Text("2026 YKS test dağılımına göre doğrulanmış sonuçların.",
                             fontSize = 11.sp, color = MutedBlack)
                         Spacer(Modifier.height(16.dp))
-                        SubjectBreakdownSection(exam.parts)
+                        SubjectBreakdownSection(exam.parts, issues = exam.topicIssues)
                     } else {
                         Text("Ders kırılımı bulunmuyor", color = DeepBlack,
                             fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
@@ -97,8 +106,19 @@ fun ExamDetailsV2(exam: ExamRecord, onDismiss: () -> Unit) {
                         Text("Bu deneme yalnızca toplam doğru, yanlış ve boş olarak kaydedilmiş. Ders sonuçlarını uydurmuyoruz.",
                             color = MutedBlack, fontSize = 12.sp)
                     }
+                    if (exam.topicIssues.isNotEmpty() && exam.parts.isEmpty()) {
+                        Spacer(Modifier.height(17.dp))
+                        Text("Konu detayları", fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold, color = DeepBlack)
+                        exam.topicIssues.forEach { issue ->
+                            Spacer(Modifier.height(7.dp))
+                            Text("• ${issue.topic} · ${issue.count} ${issue.kind.lowercase()} · ${issue.reason}",
+                                fontSize = 12.sp, color = MutedBlack)
+                        }
+                    }
                     Spacer(Modifier.height(20.dp))
-                    Text("Kayıt tarihi: ${LocalData.date(exam.examDate)}", color = MutedBlack, fontSize = 11.sp)
+                    Text("Giriş: ${exam.source} · Deneme tarihi: ${LocalData.date(exam.examDate)}",
+                        color = MutedBlack, fontSize = 11.sp)
                 }
                 HorizontalDivider(color = LightBorder)
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp)) {

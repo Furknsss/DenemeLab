@@ -89,14 +89,55 @@ fun ExamEntryV3(
         if (uri != null) newLogo = uri
     }
     var resultsImage by remember { mutableStateOf<Uri?>(null) }
+    var reportResult by remember { mutableStateOf<ReportResult?>(null) }
+    var reportError by remember { mutableStateOf<String?>(null) }
+    var readingReport by remember { mutableStateOf(false) }
+    var reviewedReport by remember { mutableStateOf(false) }
+    val verifiedKeys = remember { mutableStateMapOf<String, Boolean>() }
+    val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
+    var editingIssue by remember { mutableStateOf<Pair<String,String>?>(null) }
     val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) resultsImage = uri
+        if (uri != null) {
+            reportResult = null
+            reportError = null
+            reviewedReport = false
+            verifiedKeys.clear()
+            issueItems.clear()
+            resultsImage = uri
+        }
     }
 
     val selectedBrand = publishers.firstOrNull {
         it.key == PublisherCatalog.normalize(publisherName)
     }
     val numbers = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
+    LaunchedEffect(resultsImage) {
+        val uri = resultsImage ?: return@LaunchedEffect
+        if (selectedMethod != "Fotoğraf ile Ekle") return@LaunchedEffect
+        readingReport = true
+        reportError = null
+        try {
+            val parsed = ExamReportScanner.recognize(context, uri)
+            reportResult = parsed
+            // Only the TYT type is supported by this published report parser.
+            examType = "TYT"
+            examCategory = "Genel"
+            numbers.clear()
+            verifiedKeys.clear()
+            parsed.counts.forEach { (key, value) ->
+                numbers[key] = value
+                verifiedKeys[key] = true
+            }
+            issueItems.clear()
+            issueItems.addAll(parsed.topics)
+            if (examName.isBlank() && parsed.title.isNotBlank()) examName = parsed.title
+        } catch (e: Exception) {
+            reportResult = null
+            reportError = e.localizedMessage ?: "Belge okunamadı."
+        } finally {
+            readingReport = false
+        }
+    }
     val templates = ExamStructure.subjectsForEntry(examType, if (examType == "AYT") track else "")
     val parts = templates.map { item ->
         val (c, w) = numbers[item.key] ?: (0 to 0)
@@ -111,9 +152,19 @@ fun ExamEntryV3(
     val wrong = if (examCategory == "Genel") parts.sumOf { it.wrong } else branchWrong
     val blanks = (if (examCategory == "Genel") templates.sumOf { it.questions } else selectedCount) -
         correct - wrong
-    val saveEnabled = selectedMethod == "Manuel Ekle" && examName.isNotBlank() &&
-        publisherName.isNotBlank() && !isSaving &&
-        (if (examCategory == "Genel") generalOk else branchOk)
+    val issueError = TopicBreakdown.validate(
+        issueItems.toList(), if (examCategory == "Genel") parts else emptyList(),
+        if (examCategory == "Branş") SubjectScore(
+            "branch", branchSubject.ifBlank { "Branş" }, selectedCount, branchCorrect, branchWrong
+        ) else null
+    )
+    val photoReady = reportResult != null && !readingReport && reviewedReport &&
+        examType == "TYT" && examCategory == "Genel" &&
+        templates.all { verifiedKeys[it.key] == true }
+    val saveEnabled = examName.isNotBlank() &&
+        publisherName.isNotBlank() && !isSaving && issueError == null &&
+        (if (examCategory == "Genel") generalOk else branchOk) &&
+        (selectedMethod == "Manuel Ekle" || photoReady)
 
     Dialog(onDismissRequest = { if (!isSaving) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -260,7 +311,31 @@ fun ExamEntryV3(
                             color = Muted, fontSize = 11.sp)
                     }
                     Spacer(Modifier.height(22.dp))
-                    if (selectedMethod == "Manuel Ekle") {
+                    if (selectedMethod == "Fotoğraf ile Ekle") {
+                        PhotoImportPanel(resultsImage) { reportPicker.launch("image/*") }
+                        Spacer(Modifier.height(13.dp))
+                        if (readingReport) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(color = Black, strokeWidth = 2.dp,
+                                    modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(11.dp))
+                                Text("Belge cihaz üzerinde okunuyor...", color = Muted, fontSize = 12.sp)
+                            }
+                        }
+                        if (reportError != null) Text("Okuma hatası: " + reportError,
+                            color = Color(0xFFB42318), fontSize = 12.sp)
+                        reportResult?.let { report ->
+                            Text("${report.foundCount}/10 ders algılandı",
+                                color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            report.warnings.forEach {
+                                Text(it, color = Muted, fontSize = 11.sp)
+                            }
+                            Text("OCR ile okunan sayıları ve konuları kontrol et. Yanlış okunan dersin sürgüsünü düzelt.",
+                                color = Muted, fontSize = 11.sp)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
+                    if (selectedMethod == "Manuel Ekle" || reportResult != null) {
                         Text("Ders sonuçları", color = Black, fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(6.dp))
@@ -274,7 +349,8 @@ fun ExamEntryV3(
                                 val groupCorrect = items.sumOf { numbers[it.key]?.first ?: 0 }
                                 val groupWrong = items.sumOf { numbers[it.key]?.second ?: 0 }
                                 val count = items.sumOf { it.questions }
-                                val open = expanded[group] ?: (group == "Türkçe" || examType == "AYT")
+                                val open = expanded[group] ?: (group == "Türkçe" || examType == "AYT" ||
+                                    selectedMethod == "Fotoğraf ile Ekle")
                                 Surface(Modifier.fillMaxWidth().padding(bottom = 11.dp)
                                     .animateContentSize(animationSpec = tween(240)),
                                     color = Paper, shape = RoundedCornerShape(21.dp),
@@ -300,7 +376,28 @@ fun ExamEntryV3(
                                                     ScoreSliderRow(
                                                         label = lesson.title, questions = lesson.questions,
                                                         correct = values.first, wrong = values.second
-                                                    ) { c, w -> numbers[lesson.key] = c to w }
+                                                    ) { c, w ->
+                                                        numbers[lesson.key] = c to w
+                                                        if (selectedMethod == "Fotoğraf ile Ekle")
+                                                            verifiedKeys[lesson.key] = true
+                                                    }
+                                                    Spacer(Modifier.height(8.dp))
+                                                    if (selectedMethod == "Fotoğraf ile Ekle" &&
+                                                        verifiedKeys[lesson.key] != true) {
+                                                        Text("Bu ders OCR ile okunamadı; rakamları kontrol edip doğrula.",
+                                                            color = Color(0xFFB42318), fontSize = 10.sp)
+                                                        TextButton(onClick = {
+                                                            verifiedKeys[lesson.key] = true
+                                                        }) {
+                                                            Text("Bu dersi kontrol ettim", color = Black, fontSize = 11.sp)
+                                                        }
+                                                    }
+                                                    LessonIssueButtons(
+                                                        lesson = SubjectScore(lesson.key, lesson.title,
+                                                            lesson.questions, values.first, values.second),
+                                                        issues = issueItems.filter { it.lessonKey == lesson.key },
+                                                        onOpen = { kind -> editingIssue = lesson.key to kind }
+                                                    )
                                                     if (index < items.lastIndex)
                                                         HorizontalDivider(color = Hairline, modifier = Modifier.padding(vertical = 10.dp))
                                                 }
@@ -329,11 +426,31 @@ fun ExamEntryV3(
                                         branchCorrect = c
                                         branchWrong = w
                                     }
+                                    Spacer(Modifier.height(8.dp))
+                                    LessonIssueButtons(
+                                        lesson = SubjectScore("branch",
+                                            branchSubject.ifBlank { "Branş" }, selectedCount,
+                                            branchCorrect, branchWrong),
+                                        issues = issueItems.toList(),
+                                        onOpen = { kind -> editingIssue = "branch" to kind }
+                                    )
                                 }
                             }
                         }
-                    } else {
-                        PhotoImportPanel(resultsImage) { reportPicker.launch("image/*") }
+                    }
+                    if (selectedMethod == "Fotoğraf ile Ekle" && reportResult != null) {
+                        Spacer(Modifier.height(14.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = reviewedReport,
+                                onCheckedChange = { reviewedReport = it },
+                                colors = CheckboxDefaults.colors(checkedColor = Black))
+                            Text("Belge sonuçlarını ve konu detaylarını kontrol ettim",
+                                color = Black, fontSize = 12.sp, lineHeight = 17.sp,
+                                modifier = Modifier.weight(1f))
+                        }
+                    }
+                    if (issueError != null) {
+                        Text(issueError, color = Color(0xFFB42318), fontSize = 11.sp)
                     }
                     Spacer(Modifier.height(23.dp))
                     Text("Deneme modu", color = Black, fontSize = 16.sp,
@@ -373,7 +490,10 @@ fun ExamEntryV3(
                                 correct = correct, wrong = wrong, blank = blanks, createdAt = ts,
                                 track = if (examCategory == "Genel" && examType == "AYT") track else "",
                                 parts = if (examCategory == "Genel") parts else emptyList(),
-                                publisher = publisherName.trim(), examDate = examDate, mood = mood
+                                publisher = publisherName.trim(), examDate = examDate, mood = mood,
+                                topicIssues = issueItems.toList(),
+                                source = if (selectedMethod == "Fotoğraf ile Ekle") "Belge OCR + kullanıcı onayı"
+                                    else "Manuel"
                             )
                             onSave(ExamEntrySubmission(exam, newLogo))
                         },
@@ -390,6 +510,20 @@ fun ExamEntryV3(
                 }
             }
         }
+    }
+    editingIssue?.let { (key, kind) ->
+        val lesson = if (key == "branch") SubjectScore(
+            "branch", branchSubject.ifBlank { "Branş" }, selectedCount,
+            branchCorrect, branchWrong
+        ) else parts.firstOrNull { it.key == key }
+        if (lesson != null) {
+            ExamTopicEditor(lesson, kind, issueItems.toList(),
+                onDismiss = { editingIssue = null },
+                onChange = { updated ->
+                    issueItems.clear()
+                    issueItems.addAll(updated)
+                })
+        } else editingIssue = null
     }
 }
 
@@ -463,7 +597,7 @@ private fun PhotoImportPanel(photo: Uri?, onPick: () -> Unit) {
             Text("Sonuç belgeni seç", color = Black,
                 fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Karnedeki ders, doğru-yanlış ve konu dağılımını otomatik okuyacak sistem bu sürümde henüz bağlı değil.",
+            Text("ML Kit belgeyi cihazında analiz eder. Okunamayan dersleri elle düzelt; kontrol etmeden kayıt yapılmaz.",
                 color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 17.sp)
             if (photo != null) {
                 Spacer(Modifier.height(12.dp))
