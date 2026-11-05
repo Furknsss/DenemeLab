@@ -20,7 +20,8 @@ data class ReportResult(
     val topics: List<ExamTopicIssue>,
     val title: String,
     val warnings: List<String>,
-    val rawText: String
+    val rawText: String,
+    val outcomes: List<TopicOutcome> = emptyList()
 ) {
     val foundCount: Int get() = counts.size
 }
@@ -122,6 +123,7 @@ object ReportTableParser {
             warnings.add("${aliases.size - counts.size} alt ders güvenle okunamadı; kaydetmeden önce elle kontrol et.")
         if (raw.isBlank() && fromImage.isEmpty()) warnings.add("Belgeden yazı okunamadı.")
         val topicIssues = mutableListOf<ExamTopicIssue>()
+        val outcomeCandidates = mutableListOf<TopicOutcome>()
         var current = ""
         for (line in right) {
             val lowered = normalize(line)
@@ -151,6 +153,8 @@ object ReportTableParser {
             if (topic.length < 4 || topic.length > 175 ||
                 questionCount !in 1..15 || blankCount < 0) continue
             val titleForLesson = aliases.firstOrNull { it.key == current }?.label ?: continue
+            outcomeCandidates.add(TopicOutcome(
+                current, titleForLesson, topic, correctCount, wrongCount, blankCount))
             if (wrongCount > 0) topicIssues.add(ExamTopicIssue(
                 current, titleForLesson, topic, "Yanlış", wrongCount, "Belirtilmedi", "Belge OCR"))
             if (blankCount > 0) topicIssues.add(ExamTopicIssue(
@@ -175,7 +179,32 @@ object ReportTableParser {
         }
         if (validTopics.size < topicIssues.size)
             warnings.add("Bazı konu satırları belirsiz olduğu için alınmadı; konuları kontrol et.")
-        return ReportResult(counts, validTopics, title, warnings, raw)
+        // Only keep non-overlapping topic observations which can fit inside
+        // the verified subject totals. Unknown OCR rows are not proof of success.
+        val acceptedOutcomes = mutableListOf<TopicOutcome>()
+        for ((key, candidates) in outcomeCandidates.groupBy { it.lessonKey }) {
+            val totals = counts[key] ?: continue
+            val alias = aliases.first { it.key == key }
+            var usedCorrect = 0
+            var usedWrong = 0
+            var usedBlank = 0
+            val seen = mutableSetOf<String>()
+            for (candidate in candidates) {
+                val normalized = TopicAnalyticsV3.identity(key, candidate.topic)
+                if (!seen.add(normalized)) continue
+                if (usedCorrect + candidate.correct > totals.first ||
+                    usedWrong + candidate.wrong > totals.second ||
+                    usedBlank + candidate.blank >
+                        alias.questions - totals.first - totals.second) continue
+                acceptedOutcomes.add(candidate)
+                usedCorrect += candidate.correct
+                usedWrong += candidate.wrong
+                usedBlank += candidate.blank
+            }
+        }
+        if (acceptedOutcomes.size < outcomeCandidates.size)
+            warnings.add("Bazı kazanım satırları çakıştığı için başarı verisine eklenmedi.")
+        return ReportResult(counts, validTopics, title, warnings, raw, acceptedOutcomes)
     }
 
     /** Regroup OCR words by source-image y. Preserve x order in tabular rows. */
