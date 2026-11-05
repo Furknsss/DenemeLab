@@ -241,7 +241,7 @@ object HighResolutionReportOcr {
         if (words.isEmpty()) return emptyList()
         val heights = words.map { it.height }.filter { it > 0 }.sorted()
         val median = heights[heights.size / 2]
-        val tolerance = (median * 0.27f).coerceIn(1.2f, 3.4f)
+        val tolerance = (median * 0.40f).coerceIn(1.6f, 4.2f)
         val groups = mutableListOf<MutableList<Word>>()
         words.sortedBy { it.y }.forEach { word ->
             val current = groups.lastOrNull()
