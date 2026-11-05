@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -54,9 +56,8 @@ fun ProfileTopBar(
     var expanded by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(start = 19.dp, end = 14.dp, top = 16.dp, bottom = 13.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(36.dp).background(Ink, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-            Text("D", color = Paper, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        }
+        Image(painter = painterResource(id = R.drawable.ic_denemelab),
+            contentDescription = "DenemeLab", modifier = Modifier.size(38.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text("DenemeLab", color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp,
@@ -208,7 +209,7 @@ fun DenemeLabSettingsDialog(
                 Text("Beyaz / siyah premium tema", color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
                 Text("Veri ve gizlilik", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("Profilin ve denemelerin bu sürümde cihazında tutulur; hesabına veya buluta gönderilmez.",
+                Text("Profilin ve denemelerin bu sürümde cihazında tutulur. Üniversite aramaları YÖK Atlas sunucusuna iletilir.",
                     color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
                 Surface(onClick = {
