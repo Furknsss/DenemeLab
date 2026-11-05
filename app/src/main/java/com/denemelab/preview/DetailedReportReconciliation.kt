@@ -25,7 +25,18 @@ object DetailedReportReconciliation {
      */
     fun reconcile(raw: String, leftRows: List<String>, rightRows: List<String>): ReportResult {
         val warnings = mutableListOf<String>()
-        val page = ReportTableParser.parse(raw)
+        val safeOverview = raw.lines().filter { row ->
+            val columns = finalColumns.find(row.trim()) ?: return@filter true
+            val values = columns.groupValues.drop(1).mapNotNull { it.toIntOrNull() }
+            if (values.size != 4) return@filter false
+            val (s,d,y,pct) = values
+            s == 0 || (s in 1..60 && d in 0..s && y in 0..s &&
+                d + y <= s && pct in 0..100 &&
+                abs(pct - (100.0 * d / s).roundToInt()) <= 2)
+        }.joinToString("\n")
+        // Even the coarse overview must pass the percentage consistency
+        // check before its topic observations become trusted evidence.
+        val page = ReportTableParser.parse(safeOverview)
         val left = ReportTableParser.parse(leftRows.joinToString("\n"))
         val subjectConflict = page.counts.keys.intersect(left.counts.keys)
             .filter { page.counts[it] != left.counts[it] }.toSet()
