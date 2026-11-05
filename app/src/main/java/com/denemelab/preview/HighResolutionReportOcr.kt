@@ -48,6 +48,16 @@ object HighResolutionReportOcr {
             val bitmap = if (isPdf) renderFirstPdfPage(context, uri)
                          else decodeImage(context, uri)
             val warnings = mutableListOf<String>()
+            if (isPdf) {
+                val pages = runCatching {
+                    context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+                        PdfRenderer(descriptor).use { it.pageCount }
+                    } ?: 0
+                }.getOrElse { 0 }
+                if (pages > 1) warnings.add(
+                    "Bu PDF $pages sayfalı. Şimdilik yalnızca ilk sonuç sayfası tarandı; diğer sayfalardaki kazanımları ayrıca kontrol et."
+                )
+            }
             if (!isPdf && bitmap.width < 1800) {
                 warnings.add(
                     "Görselin yatay çözünürlüğü düşük. Çok küçük konu yazıları için orijinal PDF veya yüksek çözünürlüklü belge kullan."
