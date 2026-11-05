@@ -38,8 +38,23 @@ data class TargetRecord(
     val university: String = "",
     val department: String = "",
     val targetRank: String = "",
-    val schoolGrade: String = ""
+    val schoolGrade: String = "",
+    val programCode: Long = 0L,
+    val universityType: String = "",
+    val language: String = "",
+    val scholarship: String = "",
+    val scoreType: String = ""
 )
+
+data class StudentProfile(
+    val firstName: String = "",
+    val surname: String = "",
+    val grade: String = "12. sınıf",
+    val pictureUri: String = ""
+) {
+    val displayName: String get() = firstName.ifBlank { "Öğrenci" }
+}
+
 
 object LocalData {
     private const val PREFS = "denemelab_local_v1"
@@ -120,7 +135,12 @@ object LocalData {
             university = p.getString("university", "") ?: "",
             department = p.getString("department", "") ?: "",
             targetRank = p.getString("targetRank", "") ?: "",
-            schoolGrade = p.getString("schoolGrade", "") ?: ""
+            schoolGrade = p.getString("schoolGrade", "") ?: "",
+            programCode = p.getLong("programCode", 0L),
+            universityType = p.getString("universityType", "") ?: "",
+            language = p.getString("language", "") ?: "",
+            scholarship = p.getString("scholarship", "") ?: "",
+            scoreType = p.getString("scoreType", "") ?: ""
         )
     }
 
@@ -130,7 +150,38 @@ object LocalData {
             .putString("department", target.department)
             .putString("targetRank", target.targetRank)
             .putString("schoolGrade", target.schoolGrade)
+            .putLong("programCode", target.programCode)
+            .putString("universityType", target.universityType)
+            .putString("language", target.language)
+            .putString("scholarship", target.scholarship)
+            .putString("scoreType", target.scoreType)
             .apply()
+    }
+
+    fun loadProfile(context: Context): StudentProfile {
+        val p = preferences(context)
+        return StudentProfile(
+            firstName = p.getString("studentFirstName", "") ?: "",
+            surname = p.getString("studentSurname", "") ?: "",
+            grade = p.getString("studentGrade", "12. sınıf") ?: "12. sınıf",
+            pictureUri = p.getString("studentPictureUri", "") ?: ""
+        )
+    }
+
+    fun saveProfile(context: Context, profile: StudentProfile) {
+        preferences(context).edit()
+            .putString("studentFirstName", profile.firstName)
+            .putString("studentSurname", profile.surname)
+            .putString("studentGrade", profile.grade)
+            .putString("studentPictureUri", profile.pictureUri)
+            .apply()
+    }
+
+    fun reduceMotion(context: Context): Boolean =
+        preferences(context).getBoolean("reduceMotion", false)
+
+    fun saveReduceMotion(context: Context, value: Boolean) {
+        preferences(context).edit().putBoolean("reduceMotion", value).apply()
     }
 
     fun date(millis: Long): String = SimpleDateFormat("dd MMM yyyy", Locale("tr", "TR"))
