@@ -18,7 +18,7 @@ object DetailedReportReconciliation {
     )
 
     private val partialColumns = Regex(
-        """^(.{7,175}?)\\s+(\\d{1,2})\\s+(\\d{1,2})\\s+(\\d{1,2})\\s*$"""
+        """^(.{7,175}?)\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s*$"""
     )
 
     /**
