@@ -156,6 +156,49 @@ fun AnalysisDashboard(
         }
         Spacer(Modifier.height(23.dp))
 
+        // Put a concrete next step on the first screen, instead of burying it
+        // behind charts. Nothing is invented from exams without topic labels.
+        DashboardCard {
+            Text("ÖNCELİKLİ AÇIĞIN", fontSize = 11.sp, letterSpacing = 1.2.sp,
+                fontWeight = FontWeight.Bold, color = Grey)
+            Spacer(Modifier.height(8.dp))
+            val first = snapshot.priorities.firstOrNull()
+            val loss = AnalysisIntelligence.lossRanking(snapshot.subjectInsights).firstOrNull()
+            if (first != null) {
+                Text(first.label, color = Black, fontSize = 19.sp,
+                    lineHeight = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(5.dp))
+                Text(first.lessonName + " · " + first.recordedExams +
+                    " denemede " + first.total + " kayıtlı yanlış/boş",
+                    color = Grey, fontSize = 12.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("Şimdi yap: " + FocusJournal.plan(first.commonReason).first(),
+                    color = Black, fontSize = 12.sp, lineHeight = 18.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("Konu önceliği gerçek işaretlenen hatalardan hesaplandı.",
+                    fontSize = 10.sp, color = Grey)
+            } else if (loss != null) {
+                Text(loss.lesson, color = Black, fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(5.dp))
+                Text(loss.wrong.toString() + " yanlış · " + loss.blank + " boş",
+                    fontSize = 12.sp, color = Grey)
+                Spacer(Modifier.height(10.dp))
+                Text("İlk adım: " + loss.action, color = Black,
+                    fontSize = 12.sp, lineHeight = 18.sp)
+                Spacer(Modifier.height(7.dp))
+                Text("Konu seçmek için yanlış/boş detaylandırman gerekiyor.",
+                    fontSize = 10.sp, color = Grey)
+            } else {
+                Text("Konularını tanımaya başlayalım", color = Black,
+                    fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Text("Ders bazlı deneme eklersen ilk önceliğin burada belirir.",
+                    color = Grey, fontSize = 12.sp)
+            }
+        }
+        Spacer(Modifier.height(23.dp))
+
         SectionHeader("Net ritmin","Aynı sınav türünde ölçülen gerçek netlerin")
         DashboardCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -184,6 +227,34 @@ fun AnalysisDashboard(
                 Text("Dönem karşılaştırması için en az 4–5 karşılaştırılabilir deneme gerekir.",
                     color = Grey,fontSize = 11.sp,lineHeight = 15.sp)
             }
+        }
+        Spacer(Modifier.height(23.dp))
+
+        SectionHeader("Net istikrarı","Bir kerelik sıçrama mı, kalıcı performans mı?")
+        DashboardCard {
+            val stable = AnalysisIntelligence.stability(snapshot.history)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stable.status, color = Black, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(stable.explanation, color = Grey, fontSize = 11.sp,
+                        lineHeight = 16.sp)
+                }
+                StabilityRing(stable.spread, reduceMotion)
+            }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Border)
+            Spacer(Modifier.height(11.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                MetricLabel("Son 5 ortalama", stable.average?.let { LocalData.net(it) } ?: "—",
+                    Modifier.weight(1f))
+                MetricLabel("Net sapması", stable.spread?.let { LocalData.net(it) } ?: "—",
+                    Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Sapma küçüldükçe netlerin birbirine yaklaşır; yüksek ortalama ile birlikte değerlendirilmelidir.",
+                color = Grey, fontSize = 10.sp, lineHeight = 14.sp)
         }
         Spacer(Modifier.height(23.dp))
 
@@ -217,6 +288,35 @@ fun AnalysisDashboard(
             }
         }
         Spacer(Modifier.height(23.dp))
+
+        SectionHeader("Net kaybı haritası","Önce en büyük kaybın nerede olduğunu gör")
+        if (snapshot.subjectInsights.isNotEmpty()) {
+            DashboardCard {
+                val risks = AnalysisIntelligence.lossRanking(snapshot.subjectInsights)
+                val maxLoss = (risks.maxOfOrNull { it.lostPotential } ?: 1.0).coerceAtLeast(1.0)
+                risks.forEachIndexed { index, risk ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(risk.lesson, modifier = Modifier.weight(1f), fontSize = 13.sp,
+                            color = Black, fontWeight = FontWeight.SemiBold)
+                        Text("+${LocalData.net(risk.lostPotential)}", fontSize = 13.sp,
+                            color = Black, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { (risk.lostPotential / maxLoss).toFloat().coerceIn(0f,1f) },
+                        modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
+                        color = Black, trackColor = Pale)
+                    Spacer(Modifier.height(5.dp))
+                    Text("${risk.wrong} yanlış · ${risk.blank} boş · ${risk.action}",
+                        color = Grey, fontSize = 11.sp, lineHeight = 15.sp)
+                    if (index < risks.lastIndex) Spacer(Modifier.height(16.dp))
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Gösterilen artışlar yalnızca bütün yanlış ve boşların doğruya dönüşmesi durumundaki teorik net alanıdır.",
+                    color = Grey, fontSize = 10.sp, lineHeight = 14.sp)
+            }
+            Spacer(Modifier.height(23.dp))
+        }
 
         SectionHeader("Odaklanman gerekenler","Tekrar eden konular önce; kanıta dayalı çalışma")
         if (snapshot.priorities.isEmpty()) {
@@ -574,3 +674,20 @@ private fun ThinAction(text:String,onClick:()->Unit) {
 
 private fun signedNet(value:Double):String =
     (if(value>0) "+" else "") + LocalData.net(value)
+
+@Composable
+private fun StabilityRing(spread: Double?, reduceMotion: Boolean) {
+    val fraction = if (spread == null) 0f else (1.0 - spread / 12.0).toFloat().coerceIn(0f,1f)
+    val progress by animateFloatAsState(fraction,
+        animationSpec = tween(if(reduceMotion) 0 else 620), label = "StabilityRing")
+    Box(Modifier.size(92.dp),contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+            drawArc(Pale, -90f, 360f, false,
+                style = Stroke(9.dp.toPx(), cap = StrokeCap.Round))
+            drawArc(Black, -90f, 360f*progress, false,
+                style = Stroke(9.dp.toPx(), cap = StrokeCap.Round))
+        }
+        Text(if (spread == null) "—" else LocalData.net(spread),
+            color = Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    }
+}
