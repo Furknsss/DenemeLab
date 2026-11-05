@@ -39,7 +39,7 @@ object ExamReportScanner {
             val text = suspendCancellableCoroutine<Text> { cont ->
                 recognizer.process(image)
                     .addOnSuccessListener { if (cont.isActive) cont.resume(it) }
-                    .addOnFailureListener { if (cont.isActive) cont.cancel(it) }
+                    .addOnFailureListener { if (cont.isActive) cont.resumeWith(Result.failure(it)) }
             }
             val words = text.textBlocks.flatMap { b -> b.lines }.flatMap { l ->
                 l.elements.mapNotNull { e ->
