@@ -535,6 +535,8 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
                             Text(LocalData.net(exam.net), fontSize = 21.sp,
                                 fontWeight = FontWeight.Bold, color = Ink)
                             Muted("net")
+                            Spacer(Modifier.height(7.dp))
+                            DifficultyMiniBadge(exam.difficulty)
                         }
                     }
                 }

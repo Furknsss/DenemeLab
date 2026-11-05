@@ -76,6 +76,7 @@ fun ExamEntryV3(
     var branchCorrect by remember { mutableIntStateOf(0) }
     var branchWrong by remember { mutableIntStateOf(0) }
     var mood by remember { mutableStateOf("Normal") }
+    var difficulty by remember { mutableStateOf("Belirtilmedi") }
 
     // The date is local calendar midnight; createdAt remains the insertion time.
     val now = remember { Calendar.getInstance() }
@@ -95,6 +96,7 @@ fun ExamEntryV3(
     var reviewedReport by remember { mutableStateOf(false) }
     val verifiedKeys = remember { mutableStateMapOf<String, Boolean>() }
     val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
+    val successItems = remember { mutableStateListOf<TopicOutcome>() }
     var editingIssue by remember { mutableStateOf<Pair<String,String>?>(null) }
     val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -103,6 +105,7 @@ fun ExamEntryV3(
             reviewedReport = false
             verifiedKeys.clear()
             issueItems.clear()
+            successItems.clear()
             resultsImage = uri
         }
     }
@@ -130,6 +133,8 @@ fun ExamEntryV3(
             }
             issueItems.clear()
             issueItems.addAll(parsed.topics)
+            successItems.clear()
+            successItems.addAll(parsed.outcomes)
             if (examName.isBlank() && parsed.title.isNotBlank()) examName = parsed.title
         } catch (e: Exception) {
             reportResult = null
@@ -157,6 +162,9 @@ fun ExamEntryV3(
         if (examCategory == "Branş") SubjectScore(
             "branch", branchSubject.ifBlank { "Branş" }, selectedCount, branchCorrect, branchWrong
         ) else null
+    )
+    val successEvidenceValid = TopicAnalyticsV3.validOutcomes(
+        successItems.toList(), if (examCategory == "Genel") parts else emptyList()
     )
     val photoReady = reportResult != null && !readingReport && reviewedReport &&
         examType == "TYT" && examCategory == "Genel" &&
@@ -330,6 +338,10 @@ fun ExamEntryV3(
                             report.warnings.forEach {
                                 Text(it, color = Muted, fontSize = 11.sp)
                             }
+                            Text("${successItems.size} konu için doğru cevap kanıtı algılandı.",color = Black,fontSize = 11.sp)
+                            if (!successEvidenceValid) Text(
+                                "Ders sonuçlarıyla uyuşmayan konu doğruları başarı analizine aktarılmayacak.",
+                                color = Color(0xFFB42318), fontSize = 11.sp)
                             Text("OCR ile okunan sayıları ve konuları kontrol et. Yanlış okunan dersin sürgüsünü düzelt.",
                                 color = Muted, fontSize = 11.sp)
                         }
@@ -453,6 +465,9 @@ fun ExamEntryV3(
                         Text(issueError, color = Color(0xFFB42318), fontSize = 11.sp)
                     }
                     Spacer(Modifier.height(23.dp))
+                    DifficultyPicker(selected = difficulty,
+                        onSelected = { difficulty = it })
+                    Spacer(Modifier.height(21.dp))
                     Text("Deneme modu", color = Black, fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(6.dp))
@@ -491,7 +506,10 @@ fun ExamEntryV3(
                                 track = if (examCategory == "Genel" && examType == "AYT") track else "",
                                 parts = if (examCategory == "Genel") parts else emptyList(),
                                 publisher = publisherName.trim(), examDate = examDate, mood = mood,
+                                difficulty = difficulty,
                                 topicIssues = issueItems.toList(),
+                                topicOutcomes = if (selectedMethod == "Fotoğraf ile Ekle" &&
+                                    successEvidenceValid) successItems.toList() else emptyList(),
                                 source = if (selectedMethod == "Fotoğraf ile Ekle") "Belge OCR + kullanıcı onayı"
                                     else "Manuel"
                             )

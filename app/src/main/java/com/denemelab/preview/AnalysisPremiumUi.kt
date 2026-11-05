@@ -74,7 +74,7 @@ fun AnalysisDashboard(
         .padding(start = 20.dp,end = 20.dp,top = 12.dp,bottom = 122.dp)) {
         Text("Analiz", color = Black, fontWeight = FontWeight.Bold, fontSize = 30.sp)
         Spacer(Modifier.height(6.dp))
-        Text("Netini büyüt. Eksiklerini kalıcı kapat.", color = Grey, fontSize = 13.sp)
+        Text("Hangi konudan, neden net kaybettiğini gör; çalışma planına dönüştür.", color = Grey, fontSize = 13.sp)
         Spacer(Modifier.height(23.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AnalysisPill("Genel denemeler",category == "Genel",Modifier.weight(1f)) {
@@ -199,6 +199,9 @@ fun AnalysisDashboard(
         }
         Spacer(Modifier.height(23.dp))
 
+        TopicOpportunityWorkspace(exams, current, reduceMotion, onAdd)
+        Spacer(Modifier.height(21.dp))
+
         SectionHeader("Net ritmin","Aynı sınav türünde ölçülen gerçek netlerin")
         DashboardCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -288,35 +291,6 @@ fun AnalysisDashboard(
             }
         }
         Spacer(Modifier.height(23.dp))
-
-        SectionHeader("Net kaybı haritası","Önce en büyük kaybın nerede olduğunu gör")
-        if (snapshot.subjectInsights.isNotEmpty()) {
-            DashboardCard {
-                val risks = AnalysisIntelligence.lossRanking(snapshot.subjectInsights)
-                val maxLoss = (risks.maxOfOrNull { it.lostPotential } ?: 1.0).coerceAtLeast(1.0)
-                risks.forEachIndexed { index, risk ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(risk.lesson, modifier = Modifier.weight(1f), fontSize = 13.sp,
-                            color = Black, fontWeight = FontWeight.SemiBold)
-                        Text("+${LocalData.net(risk.lostPotential)}", fontSize = 13.sp,
-                            color = Black, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = { (risk.lostPotential / maxLoss).toFloat().coerceIn(0f,1f) },
-                        modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
-                        color = Black, trackColor = Pale)
-                    Spacer(Modifier.height(5.dp))
-                    Text("${risk.wrong} yanlış · ${risk.blank} boş · ${risk.action}",
-                        color = Grey, fontSize = 11.sp, lineHeight = 15.sp)
-                    if (index < risks.lastIndex) Spacer(Modifier.height(16.dp))
-                }
-                Spacer(Modifier.height(12.dp))
-                Text("Gösterilen artışlar yalnızca bütün yanlış ve boşların doğruya dönüşmesi durumundaki teorik net alanıdır.",
-                    color = Grey, fontSize = 10.sp, lineHeight = 14.sp)
-            }
-            Spacer(Modifier.height(23.dp))
-        }
 
         SectionHeader("Odaklanman gerekenler","Tekrar eden konular önce; kanıta dayalı çalışma")
         if (snapshot.priorities.isEmpty()) {
