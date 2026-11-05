@@ -582,7 +582,7 @@ private fun AnalysisScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
             if (last.parts.isNotEmpty()) {
                 SectionTitle("Ders bazında sonuçların")
                 PremiumCard(Modifier.fillMaxWidth()) {
-                    SubjectBreakdownSection(last.parts)
+                    SubjectBreakdownSection(last.parts, issues = last.topicIssues)
                 }
                 Spacer(Modifier.height(20.dp))
             } else {
