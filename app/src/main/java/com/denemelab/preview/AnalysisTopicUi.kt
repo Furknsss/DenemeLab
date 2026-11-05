@@ -163,7 +163,9 @@ fun TopicOpportunityWorkspace(
                             Text("Öncelik: ${subject.focusTopic}", fontSize = 10.sp,
                                 color = MutedV3, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("+${LocalData.net(subject.theoreticalRoomPerExam * gainPercent / 100)}",
+                        val scenarioPart = data.scenarioBySubject(gainPercent.roundToInt())
+                        .firstOrNull { it.first == subject.name }?.second ?: 0.0
+                    Text("+${LocalData.net(scenarioPart)}",
                             color = BlueV3, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                     Spacer(Modifier.height(6.dp))
