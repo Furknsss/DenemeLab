@@ -156,7 +156,10 @@ fun StudentProfileDialog(
                     }
                 }
                 Spacer(Modifier.height(23.dp))
-                Surface(color = Subtle, shape = RoundedCornerShape(15.dp), onClick = onPickTarget) {
+                Surface(color = Subtle, shape = RoundedCornerShape(15.dp), onClick = {
+                    onSave(StudentProfile(firstName.trim(), surname.trim(), grade, avatarUri))
+                    onPickTarget()
+                }) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Hedef üniversitem ve bölümüm", fontWeight = FontWeight.SemiBold,
