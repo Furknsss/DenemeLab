@@ -21,26 +21,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p downloaded
-          gh run download 41983068731 --name DenemeLab-Android-Test-APK --dir downloaded
+          gh run download 41985556188 --name DenemeLab-Android-Test-APK --dir downloaded
           test -s downloaded/app-debug.apk
       - name: Verify exact tested APK and prepare release
         run: |
-          cp downloaded/app-debug.apk DenemeLab-v0.5.0-Test.apk
-          test -s DenemeLab-v0.5.0-Test.apk
-          unzip -t DenemeLab-v0.5.0-Test.apk | tail -1
-          unzip -Z1 DenemeLab-v0.5.0-Test.apk | grep -x 'AndroidManifest.xml'
-          unzip -Z1 DenemeLab-v0.5.0-Test.apk | grep -x 'classes.dex'
-          echo '14fd4491b8465597d5ad9848dfd873e76360da020841da44d4d070805e238c67  DenemeLab-v0.5.0-Test.apk' | sha256sum --check
-          sha256sum DenemeLab-v0.5.0-Test.apk > DenemeLab-v0.5.0-Test.apk.sha256
+          cp downloaded/app-debug.apk DenemeLab-v0.6.0-Test.apk
+          test -s DenemeLab-v0.6.0-Test.apk
+          unzip -t DenemeLab-v0.6.0-Test.apk | tail -1
+          unzip -Z1 DenemeLab-v0.6.0-Test.apk | grep -x 'AndroidManifest.xml'
+          unzip -Z1 DenemeLab-v0.6.0-Test.apk | grep -x 'classes.dex'
+          echo 'b89024434ad0551b9b0e0383e703b96cb30adf043536a757d54a74e20ba6728c  DenemeLab-v0.6.0-Test.apk' | sha256sum --check
+          sha256sum DenemeLab-v0.6.0-Test.apk > DenemeLab-v0.6.0-Test.apk.sha256
       - name: Publish direct downloadable GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "v0.5.0-android-test1" \
-            DenemeLab-v0.5.0-Test.apk \
-            DenemeLab-v0.5.0-Test.apk.sha256 \
+          gh release create "v0.6.0-android-test1" \
+            DenemeLab-v0.6.0-Test.apk \
+            DenemeLab-v0.6.0-Test.apk.sha256 \
             --target main \
-            --title "DenemeLab v0.5.0 - Android test APK" \
+            --title "DenemeLab v0.6.0 - Android test APK" \
             --prerelease \
-            --notes "Choose DenemeLab-v0.5.0-Test.apk from Assets. This is a DEBUG-signed test build. Do not uninstall an older version if it contains important local records. Debug signatures might differ."
+            --notes "Choose DenemeLab-v0.6.0-Test.apk from Assets. This is a DEBUG-signed test build. Do not uninstall an older version if it contains important local records. Debug signatures might differ."
