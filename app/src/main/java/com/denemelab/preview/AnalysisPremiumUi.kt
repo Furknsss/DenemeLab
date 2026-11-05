@@ -346,7 +346,7 @@ private fun SpeedGauge(net:Double, limit:Int, reduceMotion:Boolean) {
             val radius=(size.width/2)-34.dp.toPx()
             for(i in 0..12) {
                 val rad=Math.toRadians((150.0+i*20.0))
-                val c=size.center
+                val c=Offset(size.width/2f,size.height/2f)
                 val r1=radius-5.dp.toPx()
                 val r2=radius+0.dp.toPx()
                 drawLine(if(i/12f<=animated) Black else Off,
