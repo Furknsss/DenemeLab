@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
@@ -72,21 +73,71 @@ fun ProfileTopBar(
             Spacer(Modifier.width(9.dp))
         }
         Box {
-            Row(Modifier.clickable { expanded = true }.padding(vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Avatar(profile.pictureUri, 37)
-                Spacer(Modifier.width(6.dp))
-                Text(profile.displayName, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 78.dp))
+            Surface(
+                onClick = { expanded = true },
+                shape = RoundedCornerShape(28.dp),
+                color = Subtle,
+                border = BorderStroke(1.dp, Border)
+            ) {
+                Row(Modifier.padding(start = 5.dp, end = 10.dp, top = 5.dp, bottom = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(profile.pictureUri, 33)
+                    Spacer(Modifier.width(7.dp))
+                    Text(profile.displayName, color = Ink, fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 66.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Icon(Icons.Rounded.ExpandMore, "Profil menüsü", tint = Muted,
+                        modifier = Modifier.size(17.dp))
+                }
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false },
-                containerColor = Paper) {
-                DropdownMenuItem(text = { Text("Profilim", color = Ink) },
-                    leadingIcon = { Icon(Icons.Rounded.Person, null, tint = Ink) },
-                    onClick = { expanded = false; onProfile() })
-                DropdownMenuItem(text = { Text("Ayarlar", color = Ink) },
-                    leadingIcon = { Icon(Icons.Rounded.Settings, null, tint = Ink) },
-                    onClick = { expanded = false; onSettings() })
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.width(250.dp)
+                    .clip(RoundedCornerShape(23.dp))
+                    .background(Paper),
+                containerColor = Paper
+            ) {
+                Column(Modifier.fillMaxWidth().padding(11.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(profile.pictureUri, 42)
+                        Spacer(Modifier.width(11.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(profile.displayName, fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold, color = Ink,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Kişisel çalışma alanın", fontSize = 10.sp, color = Muted)
+                        }
+                    }
+                    HorizontalDivider(color = Border, modifier = Modifier.padding(vertical = 5.dp))
+                    Surface(
+                        onClick = { expanded = false; onProfile() },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Subtle,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Person, null, tint = Ink, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Profilim", fontSize = 13.sp, color = Ink, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    Surface(
+                        onClick = { expanded = false; onSettings() },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Subtle,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Settings, null, tint = Ink, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Ayarlar", fontSize = 13.sp, color = Ink, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
             }
         }
     }
@@ -191,6 +242,8 @@ fun StudentProfileDialog(
 fun DenemeLabSettingsDialog(
     reduceMotion: Boolean,
     onMotionChanged: (Boolean) -> Unit,
+    onDataPack: () -> Unit,
+    onBackup: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -198,7 +251,10 @@ fun DenemeLabSettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text("Ayarlar", color = Ink, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(15.dp)
+            ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Hareketleri azalt", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -211,8 +267,36 @@ fun DenemeLabSettingsDialog(
                 Text("Tema", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text("Beyaz / siyah premium tema", color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
+                Surface(onClick = onDataPack, color = Subtle, shape = RoundedCornerShape(15.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Veri Paketi", color = Ink, fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Logo paketini yönet, yayın seç ve görsel yükle",
+                                color = Muted, fontSize = 11.sp)
+                        }
+                        Text("Aç →", color = Ink, fontSize = 12.sp)
+                    }
+                }
+                HorizontalDivider(color = Border)
+                Surface(onClick = onBackup, color = Subtle, shape = RoundedCornerShape(15.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Bulut ve yedekleme", color = Ink, fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Google Drive'a yedekle veya verilerini geri yükle",
+                                color = Muted, fontSize = 11.sp)
+                        }
+                        Text("Aç →", color = Ink, fontSize = 12.sp)
+                    }
+                }
+                HorizontalDivider(color = Border)
                 Text("Veri ve gizlilik", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("Profilin ve denemelerin bu sürümde cihazında tutulur. Üniversite aramaları YÖK Atlas sunucusuna iletilir.",
+                Text("Verilerin cihazında tutulur; desteklenen cihazlarda Android otomatik yedeği etkinleştirildi. İstersen ayrıca Drive'a dışa aktarabilirsin.",
                     color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
                 Surface(onClick = {
@@ -221,7 +305,7 @@ fun DenemeLabSettingsDialog(
                     Text("Resmî YÖK Atlas kaynak sitesi ↗", Modifier.fillMaxWidth().padding(13.dp),
                         color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
-                Text("DenemeLab · 0.3.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
+                Text("DenemeLab · 0.11.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Kapat", color = Ink) } },

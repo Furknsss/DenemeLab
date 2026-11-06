@@ -13,7 +13,12 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
-data class ScannedWord(val value: String, val centerX: Float, val centerY: Float)
+data class ScannedWord(
+    val value: String,
+    val centerX: Float,
+    val centerY: Float,
+    val height: Float = 0f
+)
 
 data class ReportResult(
     val counts: Map<String, Pair<Int, Int>>,
@@ -21,7 +26,10 @@ data class ReportResult(
     val title: String,
     val warnings: List<String>,
     val rawText: String,
-    val outcomes: List<TopicOutcome> = emptyList()
+    val outcomes: List<TopicOutcome> = emptyList(),
+    val detectedTopicRows: Int = 0,
+    val validatedTopicQuestions: Int = 0,
+    val ambiguousLessons: Set<String> = emptySet()
 ) {
     val foundCount: Int get() = counts.size
 }
@@ -33,26 +41,9 @@ data class ReportResult(
  * all OCR results must be reviewed before save.
  */
 object ExamReportScanner {
-    suspend fun recognize(context: Context, uri: Uri): ReportResult {
-        val image = InputImage.fromFilePath(context, uri)
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        try {
-            val text = suspendCancellableCoroutine<Text> { cont ->
-                recognizer.process(image)
-                    .addOnSuccessListener { if (cont.isActive) cont.resume(it) }
-                    .addOnFailureListener { if (cont.isActive) cont.resumeWith(Result.failure(it)) }
-            }
-            val words = text.textBlocks.flatMap { b -> b.lines }.flatMap { l ->
-                l.elements.mapNotNull { e ->
-                    val b = e.boundingBox ?: return@mapNotNull null
-                    ScannedWord(e.text, b.exactCenterX(), b.exactCenterY())
-                }
-            }
-            return ReportTableParser.parse(
-                text.text, words, image.width.coerceAtLeast(1)
-            )
-        } finally { recognizer.close() }
-    }
+    suspend fun recognize(context: Context, uri: Uri): ReportResult =
+        HighResolutionReportOcr.recognize(context, uri)
+
 }
 
 /** Offline, deterministic interpretation of a 3D-style TYT report sheet. */
@@ -209,7 +200,12 @@ object ReportTableParser {
 
     /** Regroup OCR words by source-image y. Preserve x order in tabular rows. */
     private fun groupedLines(words: List<ScannedWord>, width: Int): List<Pair<String, Float>> {
-        val tolerance = max(5f, width * 0.009f)
+        // Fixed 0.9% of page width merged consecutive tiny topic rows.
+        // Use OCR text height instead; a 5px line must not be joined to its
+        // neighbour merely because the scan is more than 1000px wide.
+        val measuredHeights = words.map { it.height }.filter { it > 0f }.sorted()
+        val median = measuredHeights.getOrNull(measuredHeights.size / 2) ?: 7f
+        val tolerance = (median * 0.30f).coerceIn(1.2f, 4.0f)
         fun grouped(subset: List<ScannedWord>): List<Pair<String, Float>> {
             val clusters = mutableListOf<MutableList<ScannedWord>>()
             subset.sortedBy { it.centerY }.forEach { word ->

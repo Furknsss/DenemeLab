@@ -80,8 +80,12 @@ object LocalData {
      * than claiming that a record has been saved before disk persistence.
      * Existing v0.3.x preference key remains unchanged (in-place upgrade).
      */
-    fun saveExams(context: Context, exams: List<ExamRecord>): Boolean =
-        preferences(context).edit().putString("exams", ExamJsonCodec.encode(exams)).commit()
+    fun saveExams(context: Context, exams: List<ExamRecord>): Boolean {
+        val saved = preferences(context).edit()
+            .putString("exams", ExamJsonCodec.encode(exams)).commit()
+        if (saved) BackupSignal.changed(context)
+        return saved
+    }
 
     fun loadQuestions(context: Context): List<QuestionRecord> = runCatching {
         val values = JSONArray(preferences(context).getString("questions", "[]") ?: "[]")
@@ -114,6 +118,7 @@ object LocalData {
                 .put("createdAt", it.createdAt))
         }
         preferences(context).edit().putString("questions", values.toString()).apply()
+        BackupSignal.changed(context)
     }
 
     fun loadTarget(context: Context): TargetRecord {
@@ -143,6 +148,7 @@ object LocalData {
             .putString("scholarship", target.scholarship)
             .putString("scoreType", target.scoreType)
             .apply()
+        BackupSignal.changed(context)
     }
 
     fun loadProfile(context: Context): StudentProfile {
@@ -162,6 +168,7 @@ object LocalData {
             .putString("studentGrade", profile.grade)
             .putString("studentPictureUri", profile.pictureUri)
             .apply()
+        BackupSignal.changed(context)
     }
 
     fun reduceMotion(context: Context): Boolean =
@@ -169,6 +176,7 @@ object LocalData {
 
     fun saveReduceMotion(context: Context, value: Boolean) {
         preferences(context).edit().putBoolean("reduceMotion", value).apply()
+        BackupSignal.changed(context)
     }
 
     fun date(millis: Long): String = SimpleDateFormat("dd MMM yyyy", Locale("tr", "TR"))

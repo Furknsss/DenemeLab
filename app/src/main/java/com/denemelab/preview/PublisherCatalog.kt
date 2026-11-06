@@ -58,9 +58,33 @@ object PublisherCatalog {
         }
     }.toString()
 
-    fun list(context: Context): List<PublisherBrand> =
-        decode(context.getSharedPreferences("denemelab_local_v1", Context.MODE_PRIVATE)
+    // Common exam publishers are selectable immediately. Names are data, not
+    // shipped artwork: students provide logos they have permission to use.
+    private val popularNames = listOf(
+        "3D Yayınları", "345 Yayınları", "Acil Yayınları", "Aktif Yayınları",
+        "Apotemi Yayınları", "Aydın Yayınları", "Benim Hocam Yayınları",
+        "Bilgi Sarmal Yayınları", "Çap Yayınları", "Çözüm Yayınları",
+        "Endemik Yayınları", "ENS Yayınları", "Esen Yayınları",
+        "Fenomen Yayınları", "Full Yayınları", "Hız ve Renk Yayınları",
+        "Hız Yayınları", "Karekök Yayınları", "Kırmızı Beyaz Yayınları",
+        "Kronometre Yayınları", "Limit Yayınları", "Metin Yayınları",
+        "Miray Yayınları", "Nitelik Yayınları", "Orijinal Yayınları",
+        "Özdebir Yayınları", "Palme Yayınları", "Paraf Yayınları",
+        "Paragrafın Şifresi Yayınları", "Rasyonel Yayınları",
+        "Sıfır Pozitif", "Sonuç Yayınları", "Tammat Yayıncılık",
+        "Toprak Yayıncılık", "Töder", "ÜçDörtBeş Yayınları",
+        "Yayın Denizi Yayınları", "Yarı Çap Yayınları", "Yanıt Yayınları",
+        "Yarın Yayınları", "Yediiklim Yayınları", "Zümre Yayınları"
+    )
+    private val curated = popularNames.map { PublisherBrand(normalize(it), it) }
+
+    fun list(context: Context): List<PublisherBrand> {
+        val saved = decode(context.getSharedPreferences("denemelab_local_v1", Context.MODE_PRIVATE)
             .getString(KEY, "[]") ?: "[]")
+        // A user's saved logo and chosen display name always win.
+        return (saved + curated.filterNot { preset -> saved.any { it.key == preset.key } })
+            .sortedBy { it.displayName.lowercase(tr) }
+    }
 
     fun find(context: Context, name: String): PublisherBrand? {
         val normalized = normalize(name)
@@ -103,6 +127,7 @@ object PublisherCatalog {
             if (created != null && existing != null && existing.logoFile != fileName) {
                 logoFile(context, existing)?.delete()
             }
+            BackupSignal.changed(context)
             return entry
         } catch (e: Exception) {
             created?.delete()
