@@ -10,8 +10,8 @@ android {
         applicationId = "com.denemelab.preview"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.8.0"
+        versionCode = 13
+        versionName = "0.10.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
