@@ -146,7 +146,6 @@ private fun DenemeLabApp() {
                         0 -> HomeScreen(exams, questions, onAdd = { showAddExam = true }, onNavigate = { tab = it })
                         1 -> ExamsScreen(
                             exams, generalMode, onMode = { generalMode = it },
-                            onAdd = { showAddExam = true },
                             onDetail = { openedExam = it })
                         2 -> AnalysisDashboard(exams, analysisMode,
                             onCategory = { analysisMode = it },
@@ -488,16 +487,11 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
 
 @Composable
 private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) -> Unit,
-                        onAdd: () -> Unit, onDetail: (ExamRecord) -> Unit) {
+                        onDetail: (ExamRecord) -> Unit) {
     ScrollScreen {
         Headline("Denemeler", "Bütün sonuçların, tek bir düzenli arşivde.")
         CategoryPicker(mode, onMode)
-        Surface(onClick = onAdd, modifier = Modifier.fillMaxWidth(),
-            color = Ink, shape = RoundedCornerShape(16.dp)) {
-            Text("+  Deneme ekle", Modifier.padding(15.dp), color = Color.White,
-                fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, fontSize = 13.sp)
-        }
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(18.dp))
         val filtered = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
         SectionTitle(if (mode == "Genel") "Genel denemelerim" else "Branş denemelerim")
         if (filtered.isEmpty()) {
