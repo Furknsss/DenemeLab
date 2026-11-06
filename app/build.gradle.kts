@@ -14,9 +14,10 @@ android {
     defaultConfig {
         applicationId = "com.denemelab.preview"
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.12.0"
+        versionCode = 17
+        versionName = "0.14.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -37,8 +38,14 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
     implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.core)
+    androidTestImplementation(libs.androidx.runner)
 }

@@ -106,8 +106,11 @@ fun ExamEntryV3(
     val successItems = remember { mutableStateListOf<TopicOutcome>() }
     var editingIssue by remember { mutableStateOf<Pair<String,String>?>(null) }
     var showPhotoTopicReview by remember { mutableStateOf(false) }
-    val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    var retryScanId by remember { mutableIntStateOf(0) }
+    val pickReport: (Uri?) -> Unit = { uri ->
         if (uri != null) {
+            // GetContent photo providers do not promise persistable grants.
+            // Copy to cache immediately; permission persistence is best effort.
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -123,6 +126,10 @@ fun ExamEntryV3(
             reportSelectionId += 1
         }
     }
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(), onResult = pickReport)
+    val pdfPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(), onResult = pickReport)
     LaunchedEffect(reportSelectionId) {
         val selected = pendingReportUri ?: return@LaunchedEffect
         preparingReport = true
@@ -147,7 +154,7 @@ fun ExamEntryV3(
     }
 
     val numbers = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
-    LaunchedEffect(resultsImage) {
+    LaunchedEffect(resultsImage, retryScanId) {
         val uri = resultsImage ?: return@LaunchedEffect
         if (selectedMethod != "Fotoğraf ile Ekle") return@LaunchedEffect
         readingReport = true
@@ -155,7 +162,14 @@ fun ExamEntryV3(
         try {
             val parsed = ExamReportScanner.recognize(context, uri)
             reportResult = parsed
-            // Only the TYT type is supported by this published report parser.
+            // This parser has verified TYT templates. Never silently score
+            // an AYT report using the TYT 120-question model.
+            if (Regex("\\bAYT\\b", RegexOption.IGNORE_CASE).containsMatchIn(parsed.rawText) &&
+                !Regex("\\bTYT\\b", RegexOption.IGNORE_CASE).containsMatchIn(parsed.rawText)) {
+                throw java.io.IOException(
+                    "Bu belge AYT karnesi olabilir. AYT için Manuel Ekle'yi kullan; " +
+                        "bu OCR modeli yalnızca TYT alt derslerini doğrulayabiliyor.")
+            }
             examType = "TYT"
             examCategory = "Genel"
             numbers.clear()
@@ -370,9 +384,11 @@ fun ExamEntryV3(
                     }
                     Spacer(Modifier.height(22.dp))
                     if (selectedMethod == "Fotoğraf ile Ekle") {
-                        PhotoImportPanel(resultsImage) {
-                            reportPicker.launch(arrayOf("image/*", "application/pdf"))
-                        }
+                        PhotoImportPanel(
+                            resultsImage,
+                            onPickPhoto = { imagePicker.launch("image/*") },
+                            onPickPdf = { pdfPicker.launch(arrayOf("application/pdf")) }
+                        )
                         Spacer(Modifier.height(13.dp))
                         if (preparingReport || readingReport) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -385,8 +401,18 @@ fun ExamEntryV3(
                         if (reportError != null) {
                             Text("Belge okuma sorunu: " + reportError,
                                 color = Color(0xFFB42318), fontSize = 12.sp)
-                            Text("Dosya telefonda açılabiliyorsa orijinal PDF/JPG/PNG olarak kaydedip tekrar seç. Okunamayan rakamlar otomatik kaydedilmez.",
+                            Text("Okuma hatası oluştu; mevcut denemelerin etkilenmedi. Belgeyi yeniden seçebilir veya elle doldurabilirsin.",
                                 color = Muted, fontSize = 11.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (resultsImage != null) TextButton(
+                                    onClick = { reportError = null; retryScanId += 1 }
+                                ) { Text("Yeniden tara", color = Black) }
+                                TextButton(onClick = {
+                                    selectedMethod = "Manuel Ekle"
+                                    reportResult = null
+                                    verifiedKeys.clear()
+                                }) { Text("Elle gir", color = Black) }
+                            }
                         }
                         reportResult?.let { report ->
                             Text("${report.foundCount}/10 ders algılandı",
@@ -710,7 +736,11 @@ private fun ScoreSliderRow(
 }
 
 @Composable
-private fun PhotoImportPanel(photo: Uri?, onPick: () -> Unit) {
+private fun PhotoImportPanel(
+    photo: Uri?,
+    onPickPhoto: () -> Unit,
+    onPickPdf: () -> Unit
+) {
     Surface(
         color = Soft, shape = RoundedCornerShape(22.dp),
         modifier = Modifier.fillMaxWidth()
@@ -726,27 +756,51 @@ private fun PhotoImportPanel(photo: Uri?, onPick: () -> Unit) {
             if (photo != null) {
                 Spacer(Modifier.height(12.dp))
                 val resolver = LocalContext.current.contentResolver
-                val isPdf = resolver.getType(photo)?.contains("pdf", ignoreCase = true) == true ||
+                val isPdf = photo.path?.let { path ->
+                    ReportDocumentSource.isPdf(File(path))
+                } == true || resolver.getType(photo)?.contains("pdf", ignoreCase = true) == true ||
                     photo.lastPathSegment?.endsWith(".pdf", ignoreCase = true) == true
                 if (isPdf) {
                     Text("PDF belge seçildi · yüksek çözünürlüklü tarama",
                         color = Black, fontSize = 12.sp,
                         textAlign = TextAlign.Center)
                 } else {
-                    AsyncImage(model = photo, contentDescription = "Seçilen sonuç belgesi",
+                    var previewFailed by remember(photo) { mutableStateOf(false) }
+                    AsyncImage(
+                        model = photo,
+                        contentDescription = "Seçilen sonuç belgesi",
                         modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
-                        contentScale = ContentScale.Fit)
+                        contentScale = ContentScale.Fit,
+                        onError = { previewFailed = true },
+                        onSuccess = { previewFailed = false }
+                    )
+                    if (previewFailed) {
+                        Text("Küçük önizleme gösterilemedi; belge taraması ayrı çalışır.",
+                            color = Muted, fontSize = 11.sp)
+                    }
                 }
             }
             Spacer(Modifier.height(13.dp))
-            Surface(onClick = onPick, shape = RoundedCornerShape(14.dp), color = Paper,
-                border = BorderStroke(1.dp, Hairline)) {
-                Row(Modifier.padding(horizontal = 19.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.AddAPhoto, null, tint = Black, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (photo == null) "Fotoğraf seç" else "Fotoğrafı değiştir",
-                        color = Black, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(onClick = onPickPhoto, shape = RoundedCornerShape(14.dp), color = Paper,
+                    border = BorderStroke(1.dp, Hairline), modifier = Modifier.weight(1f)) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center) {
+                        Icon(Icons.Rounded.AddAPhoto, null, tint = Black, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text("Fotoğraf", color = Black, fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Surface(onClick = onPickPdf, shape = RoundedCornerShape(14.dp), color = Paper,
+                    border = BorderStroke(1.dp, Hairline), modifier = Modifier.weight(1f)) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center) {
+                        Text("PDF belge", color = Black, fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

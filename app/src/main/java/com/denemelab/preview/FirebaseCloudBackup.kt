@@ -5,6 +5,7 @@ import android.util.Base64
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import kotlinx.coroutines.Dispatchers
@@ -64,16 +65,13 @@ object FirebaseCloudBackup {
             throw IOException("Otomatik yedekleme tercihi kaydedilemedi.")
     }
 
-    suspend fun signIn(context: Context, email: String, password: String, create: Boolean): String {
+    suspend fun signInWithGoogleToken(context: Context, idToken: String): String {
         if (!configured(context)) throw IOException("Firebase projesi henüz bağlı değil.")
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches())
-            throw IOException("Geçerli bir e-posta adresi yaz.")
-        if (password.length < 6) throw IOException("Şifre en az 6 karakter olmalı.")
-        val auth = FirebaseAuth.getInstance()
-        val result = if (create)
-            auth.createUserWithEmailAndPassword(email.trim(), password).awaitTask()
-        else auth.signInWithEmailAndPassword(email.trim(), password).awaitTask()
-        return result.user?.email ?: throw IOException("Oturum açma tamamlanamadı.")
+        if (idToken.isBlank()) throw IOException("Google kimlik bilgisi boş.")
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val result = FirebaseAuth.getInstance().signInWithCredential(credential).awaitTask()
+        return result.user?.email
+            ?: throw IOException("Google hesabı Firebase'e bağlanamadı.")
     }
 
     fun signOut(context: Context) {
@@ -107,7 +105,7 @@ object FirebaseCloudBackup {
         try {
             if (archive.length() !in 1L..MAX_ARCHIVE_BYTES.toLong())
                 throw IOException(
-                    "Bulut yedeği 8 MB sınırını aşıyor. Ayarlar'dan Drive ZIP yedeği oluştur.")
+                    "Bulut yedeği 8 MB sınırını aşıyor. Logo sayısını veya görsel boyutlarını azalt.")
             val summary = DenemeLabBackup.inspect(archive)
             val bytes = archive.readBytes()
             val hash = sha256(bytes)

@@ -285,10 +285,10 @@ fun DenemeLabSettingsDialog(
                     Row(Modifier.fillMaxWidth().padding(15.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Bulut ve yedekleme", color = Ink, fontSize = 14.sp,
+                            Text("Bulut yedekleme", color = Ink, fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
-                            Text("Google Drive'a yedekle veya verilerini geri yükle",
+                            Text("Google hesabınla otomatik güvenli yedekle",
                                 color = Muted, fontSize = 11.sp)
                         }
                         Text("Aç →", color = Ink, fontSize = 12.sp)
@@ -296,7 +296,7 @@ fun DenemeLabSettingsDialog(
                 }
                 HorizontalDivider(color = Border)
                 Text("Veri ve gizlilik", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("Verilerin cihazında tutulur; desteklenen cihazlarda Android otomatik yedeği etkinleştirildi. İstersen ayrıca Drive'a dışa aktarabilirsin.",
+                Text("Verilerin önce cihazında saklanır. Google hesabı bağladığında Firebase bulutuna yedeklenir; başka bir cihazda geri yükleme senin onayınla yapılır.",
                     color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
                 Surface(onClick = {
@@ -305,7 +305,7 @@ fun DenemeLabSettingsDialog(
                     Text("Resmî YÖK Atlas kaynak sitesi ↗", Modifier.fillMaxWidth().padding(13.dp),
                         color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
-                Text("DenemeLab · 0.11.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
+                Text("DenemeLab · 0.14.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Kapat", color = Ink) } },
