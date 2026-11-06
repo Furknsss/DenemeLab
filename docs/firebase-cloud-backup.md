@@ -14,7 +14,7 @@ Bu dalda DenemeLab verileri için Firebase Authentication (e-posta/şifre) ve Cl
 
 ## Veri koruma ve sınırlamalar
 
-- Oturum açmak mevcut denemeleri silmez, boş bir telefonu otomatik buluta yüklemez. İlk yükleme kullanıcı tarafından başlatılır.
+- Oturum açmak mevcut denemeleri silmez, boş bir telefonu otomatik buluta yüklemez. İlk yükleme kullanıcı tarafından başlatılır. Bulutta önceki yedek varsa yerel deneme/soru/logo sayısı daha az olan cihaz, mevcut yedeğin üzerine yazamaz; önce geri yükleme gerekir. Bu koruma, bilinçli silme işlemlerinin de buluta yansıtılmasını engelleyebilir; yedek bir gerçek zamanlı veri birleştirme sistemi değildir.
 - İsteğe bağlı otomatik yedekleme, WorkManager ile değişikliklerden sonra iş kuyruğuna eklenir; bağlantı geldiğinde yeniden denenir. Anlık, çift yönlü merge/senkronizasyon değildir.
 - Son tamamlanmış sürüm ve bir önceki sürüm bulutta korunur. Yeni sürümün pointer'ı ancak tüm parçalar yüklendiğinde değiştirilir. İndirirken SHA-256 ve ZIP içerikleri doğrulanır, sonra geri yükleme için açık onay istenir.
 - Yedek, şifrelenmiş ağ bağlantısıyla Firestore'a gider; **uçtan uca şifrelenmiş değildir**. Firebase Authentication ve kurallar kullanıcı hesaplarını birbirinden ayırır.
