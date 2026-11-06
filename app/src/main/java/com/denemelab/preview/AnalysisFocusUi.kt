@@ -115,7 +115,7 @@ fun AnalysisFocusPanel(
             Spacer(Modifier.height(16.dp))
 
             if (!advice.hasTopicEvidence) {
-                FocusActionButton("Eksik konuları detaylandır", onAddExam)
+                FocusActionButton("Konu detaylı deneme ekle", onAddExam)
                 return@Column
             }
 
