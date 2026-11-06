@@ -45,7 +45,10 @@ class FirebaseUploadWorker(
             Result.success()
         } catch (e: IOException) {
             // A size or configuration problem cannot be solved with network retries.
-            if (e.message?.contains("8 MB") == true || runAttemptCount >= 5)
+            if (e.message?.contains("8 MB") == true ||
+                e.message?.contains("Buluttaki yedek") == true ||
+                e.message?.contains("önceki sürümü eksik") == true ||
+                runAttemptCount >= 5)
                 Result.failure()
             else Result.retry()
         } catch (_: Exception) {
