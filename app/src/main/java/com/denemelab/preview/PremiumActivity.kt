@@ -106,7 +106,6 @@ private fun DenemeLabApp() {
     var showProfileDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showDataPackDialog by remember { mutableStateOf(false) }
-    var pendingReportUri by remember { mutableStateOf<Uri?>(null) }
     var showAtlasDialog by remember { mutableStateOf(false) }
     var openSelectedDetail by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
@@ -123,13 +122,6 @@ private fun DenemeLabApp() {
             selectedProgram = try { YokAtlasCatalog.programByCode(target.programCode) }
                 catch (_: Exception) { null }
         } else selectedProgram = null
-    }
-
-    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            pendingReportUri = uri
-            showAddExam = true
-        }
     }
 
     val palette = lightColorScheme(
@@ -155,7 +147,6 @@ private fun DenemeLabApp() {
                         1 -> ExamsScreen(
                             exams, generalMode, onMode = { generalMode = it },
                             onAdd = { showAddExam = true },
-                            onPdf = { pdfPicker.launch(arrayOf("application/pdf")) },
                             onDetail = { openedExam = it })
                         2 -> AnalysisDashboard(exams, analysisMode,
                             onCategory = { analysisMode = it },
@@ -184,14 +175,8 @@ private fun DenemeLabApp() {
 
     if (showAddExam) ExamEntryV3(
         publishers = publishers,
-        initialReportUri = pendingReportUri,
         isSaving = savingExam,
-        onDismiss = {
-            if (!savingExam) {
-                showAddExam = false
-                pendingReportUri = null
-            }
-        },
+        onDismiss = { if (!savingExam) showAddExam = false },
         onSave = { submission ->
             if (!savingExam) {
                 savingExam = true
@@ -213,7 +198,6 @@ private fun DenemeLabApp() {
                         publishers.addAll(PublisherCatalog.list(context))
                         exams.add(0, submission.exam)
                         showAddExam = false
-                        pendingReportUri = null
                         tab = 1
                         generalMode = submission.exam.category
                     } else {
@@ -504,24 +488,15 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
 
 @Composable
 private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) -> Unit,
-                        onAdd: () -> Unit, onPdf: () -> Unit, onDetail: (ExamRecord) -> Unit) {
+                        onAdd: () -> Unit, onDetail: (ExamRecord) -> Unit) {
     ScrollScreen {
         Headline("Denemeler", "Bütün sonuçların, tek bir düzenli arşivde.")
         CategoryPicker(mode, onMode)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(onClick = onAdd, modifier = Modifier.weight(1f),
-                color = Ink, shape = RoundedCornerShape(16.dp)) {
-                Text("+  Deneme ekle", Modifier.padding(15.dp), color = Color.White,
-                    fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, fontSize = 13.sp)
-            }
-            Surface(onClick = onPdf, modifier = Modifier.weight(1f),
-                color = Pale, shape = RoundedCornerShape(16.dp)) {
-                Text("PDF seç", Modifier.padding(15.dp), color = Ink,
-                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, fontSize = 13.sp)
-            }
+        Surface(onClick = onAdd, modifier = Modifier.fillMaxWidth(),
+            color = Ink, shape = RoundedCornerShape(16.dp)) {
+            Text("+  Deneme ekle", Modifier.padding(15.dp), color = Color.White,
+                fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, fontSize = 13.sp)
         }
-        Spacer(Modifier.height(11.dp))
-        Muted("PDF seçerek sonuç belgesini aç, OCR bulgularını incele ve onaylayarak kaydet.")
         Spacer(Modifier.height(26.dp))
         val filtered = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
         SectionTitle(if (mode == "Genel") "Genel denemelerim" else "Branş denemelerim")
