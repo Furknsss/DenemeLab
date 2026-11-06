@@ -17,6 +17,14 @@ import java.io.IOException
  * This DOES NOT request access to the student's private Google Drive data.
  */
 object GoogleAccountAuth {
+    fun accountEmail(context: Context): String? {
+        if (!FirebaseCloudBackup.configured(context)) return null
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: return null
+        return user.email?.takeIf { email ->
+            email.isNotBlank() && user.providerData.any { it.providerId == "google.com" }
+        }
+    }
+
     fun webClientConfigured(context: Context): Boolean = webClientId(context) != null
 
     private fun webClientId(context: Context): String? {
