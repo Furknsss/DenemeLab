@@ -31,8 +31,11 @@ object GoogleAccountAuth {
         // Generated only after Firebase config contains the OAuth WEB client
         // (client_type=3). Avoid a generated-R reference so a bad config fails
         // gracefully rather than preventing the project from compiling.
-        val id = context.resources.getIdentifier(
+        val generatedId = context.resources.getIdentifier(
             "default_web_client_id", "string", context.packageName)
+        val publicFallbackId = context.resources.getIdentifier(
+            "denemelab_google_web_client_id", "string", context.packageName)
+        val id = if (generatedId != 0) generatedId else publicFallbackId
         return if (id == 0) null else
             context.getString(id).takeIf {
                 it.isNotBlank() && it.endsWith(".apps.googleusercontent.com")
