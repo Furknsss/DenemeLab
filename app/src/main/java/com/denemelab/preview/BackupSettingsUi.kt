@@ -48,6 +48,8 @@ fun BackupSettingsDialog(onDismiss: () -> Unit, onRestored: () -> Unit) {
                         .padding(start = 20.dp, end = 20.dp, bottom = 18.dp)
                 ) {
                     FirebaseCloudSection(onRestored = onRestored)
+                    Spacer(Modifier.height(10.dp))
+                    LegacyBackupMigration(onRestored = onRestored)
                 }
             }
         }
