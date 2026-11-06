@@ -69,7 +69,7 @@ object HighResolutionReportOcr {
                 val allRight = mutableListOf<String>()
                 val warnings = mutableListOf<String>()
                 var scannedPages = 0
-                if (ReportDocumentSource.hasPdfSignature(staged)) {
+                if (ReportDocumentSource.isPdf(staged)) {
                     try {
                         ParcelFileDescriptor.open(staged, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
                             PdfRenderer(fd).use { pdf ->
