@@ -57,9 +57,13 @@ jobs:
         run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
       - name: Validate built APK
         run: |
-          test -s app/build/generated/res/google-services/debug/values/values.xml
-          grep -q 'name="google_app_id"' app/build/generated/res/google-services/debug/values/values.xml
           test -s app/build/outputs/apk/debug/app-debug.apk
+          # Validate the packaged resource, not an AGP-version-specific intermediate path.
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources app/build/outputs/apk/debug/app-debug.apk > /tmp/denemelab-debug-resources.txt
+          if ! grep -q 'string/google_app_id' /tmp/denemelab-debug-resources.txt; then
+            echo "::error::Firebase google_app_id is missing from the packaged APK."
+            exit 1
+          fi
           unzip -t app/build/outputs/apk/debug/app-debug.apk | tail -1
           sha256sum app/build/outputs/apk/debug/app-debug.apk
       - name: Upload APK
