@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="sharedpref" path="denemelab_local_v1.xml"/>
+    <include domain="file" path="publisher-logos/"/>
+    <include domain="file" path="profile-pictures/"/>
+</full-backup-content>
