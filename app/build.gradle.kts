@@ -11,6 +11,22 @@ if (file("google-services.json").isFile) {
 android {
     namespace = "com.denemelab.preview"
     compileSdk { version = release(36) { minorApiLevel = 1 } }
+    // Debug builds must use the exact test key registered in Firebase.
+    // AGP may otherwise generate/use a different default signing location,
+    // causing Google sign-in to fail even though CI printed the right SHA-1.
+    signingConfigs {
+        getByName("debug") {
+            val stableKeystore = java.io.File(
+                System.getProperty("user.home"), ".android/debug.keystore"
+            )
+            if (stableKeystore.isFile) {
+                storeFile = stableKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
     defaultConfig {
         applicationId = "com.denemelab.preview"
         minSdk = 24
