@@ -14,6 +14,7 @@ android {
     defaultConfig {
         applicationId = "com.denemelab.preview"
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 36
         versionCode = 16
         versionName = "0.13.0"
@@ -44,4 +45,7 @@ dependencies {
     implementation("io.coil-kt:coil-svg:2.7.0")
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.core)
+    androidTestImplementation(libs.androidx.runner)
 }
