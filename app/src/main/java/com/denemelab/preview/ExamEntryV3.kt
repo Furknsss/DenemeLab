@@ -757,7 +757,7 @@ private fun PhotoImportPanel(
                 Spacer(Modifier.height(12.dp))
                 val resolver = LocalContext.current.contentResolver
                 val isPdf = photo.path?.let { path ->
-                    ReportDocumentSource.hasPdfSignature(File(path))
+                    ReportDocumentSource.isPdf(File(path))
                 } == true || resolver.getType(photo)?.contains("pdf", ignoreCase = true) == true ||
                     photo.lastPathSegment?.endsWith(".pdf", ignoreCase = true) == true
                 if (isPdf) {
