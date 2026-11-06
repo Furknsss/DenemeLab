@@ -305,7 +305,7 @@ fun DenemeLabSettingsDialog(
                     Text("Resmî YÖK Atlas kaynak sitesi ↗", Modifier.fillMaxWidth().padding(13.dp),
                         color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
-                Text("DenemeLab · 0.13.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
+                Text("DenemeLab · 0.14.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Kapat", color = Ink) } },
