@@ -2,6 +2,7 @@ package com.denemelab.preview
 
 import android.app.DatePickerDialog
 import android.net.Uri
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -40,6 +41,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import java.util.Calendar
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -88,6 +93,10 @@ fun ExamEntryV3(
         }.timeInMillis)
     }
     var resultsImage by remember { mutableStateOf<Uri?>(null) }
+    var pendingReportUri by remember { mutableStateOf<Uri?>(null) }
+    var reportSelectionId by remember { mutableIntStateOf(0) }
+    var localReportFile by remember { mutableStateOf<File?>(null) }
+    var preparingReport by remember { mutableStateOf(false) }
     var reportResult by remember { mutableStateOf<ReportResult?>(null) }
     var reportError by remember { mutableStateOf<String?>(null) }
     var readingReport by remember { mutableStateOf(false) }
@@ -99,14 +108,42 @@ fun ExamEntryV3(
     var showPhotoTopicReview by remember { mutableStateOf(false) }
     val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             reportResult = null
             reportError = null
             reviewedReport = false
             verifiedKeys.clear()
             issueItems.clear()
             successItems.clear()
-            resultsImage = uri
+            resultsImage = null
+            pendingReportUri = uri
+            reportSelectionId += 1
         }
+    }
+    LaunchedEffect(reportSelectionId) {
+        val selected = pendingReportUri ?: return@LaunchedEffect
+        preparingReport = true
+        try {
+            val staged = withContext(Dispatchers.IO) {
+                ReportDocumentSource.stage(context, selected)
+            }
+            localReportFile?.delete()
+            localReportFile = staged
+            resultsImage = Uri.fromFile(staged)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            reportError = e.localizedMessage ?: "Belgeye erişilemiyor."
+            resultsImage = null
+        } finally {
+            preparingReport = false
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { localReportFile?.delete() }
     }
 
     val numbers = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
@@ -132,6 +169,8 @@ fun ExamEntryV3(
             successItems.clear()
             successItems.addAll(parsed.outcomes)
             if (examName.isBlank() && parsed.title.isNotBlank()) examName = parsed.title
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             reportResult = null
             reportError = e.localizedMessage ?: "Belge okunamadı."
@@ -335,7 +374,7 @@ fun ExamEntryV3(
                             reportPicker.launch(arrayOf("image/*", "application/pdf"))
                         }
                         Spacer(Modifier.height(13.dp))
-                        if (readingReport) {
+                        if (preparingReport || readingReport) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(color = Black, strokeWidth = 2.dp,
                                     modifier = Modifier.size(19.dp))
@@ -343,8 +382,12 @@ fun ExamEntryV3(
                                 Text("Belge cihaz üzerinde okunuyor...", color = Muted, fontSize = 12.sp)
                             }
                         }
-                        if (reportError != null) Text("Okuma hatası: " + reportError,
-                            color = Color(0xFFB42318), fontSize = 12.sp)
+                        if (reportError != null) {
+                            Text("Belge okuma sorunu: " + reportError,
+                                color = Color(0xFFB42318), fontSize = 12.sp)
+                            Text("Dosya telefonda açılabiliyorsa orijinal PDF/JPG/PNG olarak kaydedip tekrar seç. Okunamayan rakamlar otomatik kaydedilmez.",
+                                color = Muted, fontSize = 11.sp)
+                        }
                         reportResult?.let { report ->
                             Text("${report.foundCount}/10 ders algılandı",
                                 color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
