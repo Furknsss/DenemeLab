@@ -16,8 +16,8 @@ android {
     // causing Google sign-in to fail even though CI printed the right SHA-1.
     signingConfigs {
         getByName("debug") {
-            val stableKeystore = java.io.File(
-                System.getProperty("user.home"), ".android/debug.keystore"
+            val stableKeystore = file(
+                System.getProperty("user.home") + "/.android/debug.keystore"
             )
             if (stableKeystore.isFile) {
                 storeFile = stableKeystore
