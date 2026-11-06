@@ -1,8 +1,8 @@
-name: DenemeLab OCR Android Emulator
+name: DenemeLab Android 16 Login and OCR Emulator
 
 on:
   push:
-    branches: [fix/report-import-ocr-v014]
+    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015]
   workflow_dispatch:
 
 permissions:
@@ -40,10 +40,10 @@ jobs:
       - name: Enable emulator hardware acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
-      - name: Boot emulator and test real document import
+      - name: Boot Android 16 and test Google picker plus document import
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 36
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -54,7 +54,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DenemeLab-OCR-Emulator-Results
+          name: DenemeLab-Android16-Google-OCR-Results
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
