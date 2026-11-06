@@ -114,12 +114,13 @@ object FocusActionEngine {
         val detailedOutcome = later.topicOutcomes.firstOrNull {
             TopicAnalyticsV3.identity(it.lessonKey, it.topic) == topic.key
         }
-        if (newIssues.isEmpty() && detailedOutcome == null)
+        // A negative or partial manual tag is not a complete new outcome:
+        // it may omit blanks entirely. Require an explicit full D/Y/B topic
+        // observation before declaring the original weakness improved.
+        if (detailedOutcome == null)
             return FocusVerification.Unmeasured
-        val wrong = detailedOutcome?.wrong
-            ?: newIssues.filter { it.kind == "Yanlış" }.sumOf { it.count }
-        val blank = detailedOutcome?.blank
-            ?: newIssues.filter { it.kind == "Boş" }.sumOf { it.count }
+        val wrong = detailedOutcome.wrong
+        val blank = detailedOutcome.blank
         return FocusVerification.Measured(
             beforeWrong = previousWrong, beforeBlank = previousBlank,
             afterWrong = wrong, afterBlank = blank
