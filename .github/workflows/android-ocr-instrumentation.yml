@@ -1,0 +1,62 @@
+name: DenemeLab OCR Android Emulator
+
+on:
+  push:
+    branches: [fix/report-import-ocr-v014]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: denemelab-emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report-ocr-device:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android 36.1 build platform
+        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+      - name: Configure private Firebase Android project
+        env:
+          FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
+        run: |
+          test -n "$FIREBASE_ANDROID_CONFIG_B64" || { echo "::error::Firebase Android config missing"; exit 1; }
+          umask 077
+          printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+      - name: Enable emulator hardware acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Boot emulator and test real document import
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash ./gradlew :app:connectedDebugAndroidTest --no-daemon --no-configuration-cache --max-workers=2
+      - name: Publish device test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenemeLab-OCR-Emulator-Results
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 5

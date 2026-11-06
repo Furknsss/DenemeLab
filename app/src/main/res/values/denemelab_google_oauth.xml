@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Public Google OAuth client identifier, not a secret. No API key is stored here. -->
+    <string name="denemelab_google_web_client_id" translatable="false">487055319464-duq3c729ucnhd9mm4kbi35904d3ve146.apps.googleusercontent.com</string>
+</resources>
