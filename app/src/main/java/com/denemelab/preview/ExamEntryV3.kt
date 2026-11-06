@@ -101,6 +101,8 @@ fun ExamEntryV3(
     var reportError by remember { mutableStateOf<String?>(null) }
     var readingReport by remember { mutableStateOf(false) }
     var reviewedReport by remember { mutableStateOf(false) }
+    var saveSubjectScoresOnly by remember { mutableStateOf(false) }
+    var showMissingByCourse by remember { mutableStateOf(false) }
     val verifiedKeys = remember { mutableStateMapOf<String, Boolean>() }
     val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
     val successItems = remember { mutableStateListOf<TopicOutcome>() }
@@ -118,6 +120,7 @@ fun ExamEntryV3(
             reportResult = null
             reportError = null
             reviewedReport = false
+            saveSubjectScoresOnly = false
             verifiedKeys.clear()
             issueItems.clear()
             successItems.clear()
@@ -162,6 +165,7 @@ fun ExamEntryV3(
         try {
             val parsed = ExamReportScanner.recognize(context, uri)
             reportResult = parsed
+            saveSubjectScoresOnly = false
             // This parser has verified TYT templates. Never silently score
             // an AYT report using the TYT 120-question model.
             if (Regex("\\bAYT\\b", RegexOption.IGNORE_CASE).containsMatchIn(parsed.rawText) &&
@@ -215,11 +219,16 @@ fun ExamEntryV3(
     val successEvidenceValid = TopicAnalyticsV3.validOutcomes(
         successItems.toList(), if (examCategory == "Genel") parts else emptyList()
     )
-    val photoReady = reportResult != null && !readingReport && reviewedReport &&
-        examType == "TYT" && examCategory == "Genel" &&
-        templates.all { verifiedKeys[it.key] == true } && successEvidenceValid
+    // A partial OCR report is NOT evidence of success in unseen questions.
+    val coverage = ReportCoverage.inspect(parts, successItems.toList())
+    val photoReady = reportResult != null && !readingReport && !preparingReport &&
+        reviewedReport && examType == "TYT" && examCategory == "Genel" &&
+        templates.all { verifiedKeys[it.key] == true } &&
+        (saveSubjectScoresOnly || (coverage.complete && successEvidenceValid))
     val saveEnabled = examName.isNotBlank() &&
-        publisherName.isNotBlank() && !isSaving && issueError == null &&
+        publisherName.isNotBlank() && !isSaving &&
+        (issueError == null ||
+            (selectedMethod == "Fotoğraf ile Ekle" && saveSubjectScoresOnly)) &&
         (if (examCategory == "Genel") generalOk else branchOk) &&
         (selectedMethod == "Manuel Ekle" || photoReady)
 
@@ -422,17 +431,29 @@ fun ExamEntryV3(
                             }
                             Spacer(Modifier.height(7.dp))
                             Text(
-                                "${successItems.size} kazanım · ${successItems.sumOf { it.questions }} sorunun D/Y/Boş ayrımı okundu",
+                                "${successItems.size} kazanım · ${coverage.observed}/${coverage.total} soru konu bazında doğrulandı",
                                 color = Black, fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            if (report.detectedTopicRows > successItems.size)
-                                Text(
-                                    "${report.detectedTopicRows - successItems.size} konu satırı belirsiz; kontrol edip gerekirse ekle.",
-                                    color = Color(0xFFB42318), fontSize = 11.sp
-                                )
-                            if (!successEvidenceValid) Text(
-                                "Konu sayıları ders toplamlarıyla uyuşmuyor. Kaydetmeden önce düzelt.",
+                            if (!coverage.complete) {
+                                Text("${coverage.missing} sorunun konu dağılımı henüz doğrulanmadı. " +
+                                        "Bu soruların doğru olduğu varsayılmaz.",
+                                    color = Color(0xFFB42318), fontSize = 12.sp)
+                                TextButton(onClick = { showMissingByCourse = !showMissingByCourse }) {
+                                    Text(if (showMissingByCourse) "Ders dökümünü gizle" else
+                                        "Eksik konu dağılımını derslere göre göster",
+                                        color = Black, fontSize = 12.sp)
+                                }
+                                if (showMissingByCourse) coverage.incompleteCourses.forEach { course ->
+                                    Text("${course.name}: ${course.observed}/${course.total} soru · " +
+                                            "${course.missing} soru doğrulanmadı" +
+                                            (if (course.valid) "" else " · Tutarsız sayılar"),
+                                        color = if (course.valid) Muted else Color(0xFFB42318),
+                                        fontSize = 11.sp)
+                                }
+                            }
+                            if (!coverage.valid || !successEvidenceValid) Text(
+                                "Konu D/Y/Boş toplamları derslerle çelişiyor. Önce düzelt.",
                                 color = Color(0xFFB42318), fontSize = 11.sp)
                             Spacer(Modifier.height(9.dp))
                             Surface(
@@ -448,8 +469,26 @@ fun ExamEntryV3(
                                 )
                             }
                             Spacer(Modifier.height(6.dp))
-                            Text("OCR sonucu kesin kabul edilmez. Konu sayıları ve dersler tutarlı olmalı.",
+                            Text("Konu sonuçları ancak bütün derslerin D/Y/Boş toplamıyla eşleşirse analizlere eklenir.",
                                 color = Muted, fontSize = 11.sp)
+                            if (!coverage.complete) {
+                                Spacer(Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = saveSubjectScoresOnly,
+                                        onCheckedChange = {
+                                            saveSubjectScoresOnly = it
+                                            reviewedReport = false
+                                        },
+                                        colors = CheckboxDefaults.colors(checkedColor = Black))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Yalnızca ders sonuçlarını kaydet",
+                                            color = Black, fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold)
+                                        Text("Eksik konu verisini analizlere ekleme; yalnızca kontrol ettiğim netleri kaydet.",
+                                            color = Muted, fontSize = 11.sp)
+                                    }
+                                }
+                            }
                         }
                         Spacer(Modifier.height(16.dp))
                     }
@@ -615,11 +654,16 @@ fun ExamEntryV3(
                                 parts = if (examCategory == "Genel") parts else emptyList(),
                                 publisher = publisherName.trim(), examDate = examDate, mood = mood,
                                 difficulty = difficulty,
-                                topicIssues = issueItems.toList(),
+                                topicIssues = if (selectedMethod == "Fotoğraf ile Ekle" &&
+                                    saveSubjectScoresOnly) emptyList() else issueItems.toList(),
                                 topicOutcomes = if (selectedMethod == "Fotoğraf ile Ekle" &&
+                                    !saveSubjectScoresOnly && coverage.complete &&
                                     successEvidenceValid) successItems.toList() else emptyList(),
-                                source = if (selectedMethod == "Fotoğraf ile Ekle") "Belge OCR + kullanıcı onayı"
-                                    else "Manuel"
+                                source = when {
+                                    selectedMethod == "Manuel Ekle" -> "Manuel"
+                                    saveSubjectScoresOnly -> "Belge OCR · yalnız doğrulanan ders sonuçları"
+                                    else -> "Belge OCR + tam konu doğrulaması"
+                                }
                             )
                             onSave(ExamEntrySubmission(exam, null))
                         },
@@ -658,6 +702,7 @@ fun ExamEntryV3(
                     ))
                 }
                 reviewedReport = false
+                saveSubjectScoresOnly = false
             }
         )
     }
