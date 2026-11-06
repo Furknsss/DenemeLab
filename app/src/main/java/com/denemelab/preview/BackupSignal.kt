@@ -11,5 +11,6 @@ import android.content.Context
 object BackupSignal {
     fun changed(context: Context) {
         runCatching { BackupManager(context).dataChanged() }
+        runCatching { FirebaseBackupScheduler.onLocalChange(context) }
     }
 }
