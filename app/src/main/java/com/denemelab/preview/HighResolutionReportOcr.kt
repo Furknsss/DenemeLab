@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ImageDecoder
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
@@ -13,6 +14,7 @@ import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.media.ExifInterface
 import android.net.Uri
+import android.os.Build
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
@@ -21,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.io.File
 import kotlin.coroutines.resume
 import kotlin.math.abs
 import kotlin.math.max
@@ -41,16 +44,22 @@ object HighResolutionReportOcr {
     private data class Line(val text: String, val y: Float)
 
     suspend fun recognize(context: Context, uri: Uri): ReportResult =
-        withContext(Dispatchers.Default) {
-            val isPdf = context.contentResolver.getType(uri)
-                ?.contains("pdf", ignoreCase = true) == true ||
-                uri.lastPathSegment?.endsWith(".pdf", ignoreCase = true) == true
-            val bitmap = if (isPdf) renderFirstPdfPage(context, uri)
-                         else decodeImage(context, uri)
+        withContext(Dispatchers.IO) {
+            // Content providers can revoke read access or fail on repeated
+            // opens. Work from one locally staged, seekable copy instead.
+            val isTemporary = uri.scheme != "file"
+            val staged = if (isTemporary) ReportDocumentSource.stage(context, uri)
+                else File(uri.path ?: throw IOException("Belge yolu bulunamadı."))
+            try {
+            val localUri = Uri.fromFile(staged)
+            val isPdf = ReportDocumentSource.hasPdfSignature(staged) ||
+                staged.extension.equals("pdf", ignoreCase = true)
+            val bitmap = if (isPdf) renderFirstPdfPage(context, localUri)
+                         else decodeImage(context, localUri)
             val warnings = mutableListOf<String>()
             if (isPdf) {
                 val pages = runCatching {
-                    context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+                    context.contentResolver.openFileDescriptor(localUri, "r")?.use { descriptor ->
                         PdfRenderer(descriptor).use { it.pageCount }
                     } ?: 0
                 }.getOrElse { 0 }
@@ -127,6 +136,9 @@ object HighResolutionReportOcr {
                 recognizer.close()
                 bitmap.recycle()
             }
+            } finally {
+                if (isTemporary) staged.delete()
+            }
         }
 
     private suspend fun read(
@@ -179,8 +191,24 @@ object HighResolutionReportOcr {
         context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, bounds)
         } ?: throw IOException("Görsel açılamadı.")
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0)
-            throw IOException("Geçersiz görüntü.")
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            // Newer devices may recognize HEIC/AVIF through ImageDecoder even
+            // when BitmapFactory's old header decoder does not.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val fallback = runCatching {
+                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) {
+                            decoder, info, _ ->
+                        val maximum = max(info.size.width, info.size.height)
+                        var sample = 1
+                        while (maximum / sample > 5100) sample *= 2
+                        decoder.setTargetSampleSize(sample)
+                        decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
+                    }
+                }.getOrNull()
+                if (fallback != null) return fallback
+            }
+            throw IOException("Görsel biçimi okunamadı. Orijinal JPG, PNG, WEBP ya da PDF seç.")
+        }
         val options = BitmapFactory.Options()
         var sample = 1
         while (max(bounds.outWidth, bounds.outHeight) / sample > 5100) sample *= 2
