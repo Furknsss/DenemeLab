@@ -105,6 +105,8 @@ private fun DenemeLabApp() {
     var selectedProgram by remember { mutableStateOf<AtlasProgram?>(null) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showDataPackDialog by remember { mutableStateOf(false) }
+    var pendingReportUri by remember { mutableStateOf<Uri?>(null) }
     var showAtlasDialog by remember { mutableStateOf(false) }
     var openSelectedDetail by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
@@ -125,7 +127,8 @@ private fun DenemeLabApp() {
 
     val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            Toast.makeText(context, "PDF seçildi. Otomatik analiz henüz etkin değil.", Toast.LENGTH_LONG).show()
+            pendingReportUri = uri
+            showAddExam = true
         }
     }
 
@@ -181,8 +184,14 @@ private fun DenemeLabApp() {
 
     if (showAddExam) ExamEntryV3(
         publishers = publishers,
+        initialReportUri = pendingReportUri,
         isSaving = savingExam,
-        onDismiss = { if (!savingExam) showAddExam = false },
+        onDismiss = {
+            if (!savingExam) {
+                showAddExam = false
+                pendingReportUri = null
+            }
+        },
         onSave = { submission ->
             if (!savingExam) {
                 savingExam = true
@@ -204,6 +213,7 @@ private fun DenemeLabApp() {
                         publishers.addAll(PublisherCatalog.list(context))
                         exams.add(0, submission.exam)
                         showAddExam = false
+                        pendingReportUri = null
                         tab = 1
                         generalMode = submission.exam.category
                     } else {
@@ -244,7 +254,19 @@ private fun DenemeLabApp() {
             reduceMotion = it
             LocalData.saveReduceMotion(context, it)
         },
+        onDataPack = {
+            showSettingsDialog = false
+            showDataPackDialog = true
+        },
         onDismiss = { showSettingsDialog = false }
+    )
+    if (showDataPackDialog) PublisherDataPackDialog(
+        publishers = publishers,
+        onDismiss = { showDataPackDialog = false },
+        onCatalogChanged = {
+            publishers.clear()
+            publishers.addAll(PublisherCatalog.list(context))
+        }
     )
     if (showAtlasDialog) AtlasSearchDialog(
         onDismiss = { showAtlasDialog = false; openSelectedDetail = false },
@@ -499,7 +521,7 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
             }
         }
         Spacer(Modifier.height(11.dp))
-        Muted("PDF seçici çalışır. Otomatik optik okuma sonraki aşamada etkinleşecek.")
+        Muted("PDF seçerek sonuç belgesini aç, OCR bulgularını incele ve onaylayarak kaydet.")
         Spacer(Modifier.height(26.dp))
         val filtered = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
         SectionTitle(if (mode == "Genel") "Genel denemelerim" else "Branş denemelerim")
