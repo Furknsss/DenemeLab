@@ -51,6 +51,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.coil.compose)
     implementation(libs.mlkit.text.recognition)
+    // Read searchable PDF text directly before falling back to image OCR.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
