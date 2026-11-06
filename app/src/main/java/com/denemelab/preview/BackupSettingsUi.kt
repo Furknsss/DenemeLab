@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudDone
@@ -90,7 +92,8 @@ fun BackupSettingsDialog(onDismiss: () -> Unit, onRestored: () -> Unit) {
     Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
         Surface(color = Color.White, shape = RoundedCornerShape(26.dp),
             modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(22.dp),
+            Column(Modifier.padding(22.dp).heightIn(max = 650.dp)
+                .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(13.dp)) {
                 Icon(Icons.Rounded.CloudDone, contentDescription = null,
                     tint = Color(0xFF151515), modifier = Modifier.size(30.dp))
@@ -100,6 +103,10 @@ fun BackupSettingsDialog(onDismiss: () -> Unit, onRestored: () -> Unit) {
                     "Ek güvenlik için denemelerini, soru kayıtlarını, hedefini, profilini, çalışma geçmişini ve yayın logolarını " +
                     "Google Drive'a veya başka bir güvenli konuma yedekleyebilirsin.",
                     color = Color(0xFF696969), fontSize = 12.sp, lineHeight = 18.sp)
+                FirebaseCloudSection(onRestored = onRestored)
+                HorizontalDivider(color = Color(0xFFE6E6E6))
+                Text("ZIP / Google Drive yedeği", fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold)
                 Surface(onClick = {
                     if (!busy) savePicker.launch("DenemeLab-Yedek.zip")
                 }, color = Color(0xFF151515), shape = RoundedCornerShape(15.dp),
