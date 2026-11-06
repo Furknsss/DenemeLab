@@ -176,7 +176,7 @@ fun PublisherDataPackDialog(
                         border = BorderStroke(1.dp, Color(0xFFE8E8E8))) {
                         Row(Modifier.fillMaxWidth().padding(11.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            PublisherLogo(editName, 43.dp, pendingSelection = chosenLogo)
+                            PublisherLogo(editName, size = 43.dp, pendingSelection = chosenLogo)
                             Spacer(Modifier.width(10.dp))
                             Text(if (chosenLogo == null) "Görsel seç (PNG, JPG, WEBP)" else "Yeni görsel seçildi · değiştir",
                                 color = PackInk, fontSize = 12.sp, modifier = Modifier.weight(1f))
