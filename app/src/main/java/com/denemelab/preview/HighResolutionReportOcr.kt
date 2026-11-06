@@ -117,7 +117,7 @@ object HighResolutionReportOcr {
                         )
                     }
                 } else {
-                    val image = decodeImage(context, Uri.fromFile(staged))
+                    val image = decodeImage(staged)
                     try {
                         if (min(image.width, image.height) < 850)
                             warnings.add("Görsel çözünürlüğü düşük; küçük rakamlar hatalı okunabilir.")
@@ -271,55 +271,57 @@ object HighResolutionReportOcr {
         }
     }
 
-    private fun decodeImage(context: Context, uri: Uri): Bitmap {
+    /**
+     * The photo is already copied to cache. Decode it directly by FILE path,
+     * never by reopening a potentially unavailable content:// provider. PNG,
+     * JPEG, WebP, HEIC and their MIME-less cache extensions are supported
+     * wherever Android's decoders support the actual file signature.
+     */
+    private fun decodeImage(file: File): Bitmap {
+        val path = file.absolutePath
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, bounds)
-        } ?: throw IOException("Görsel açılamadı.")
+        BitmapFactory.decodeFile(path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            // Newer devices may recognize HEIC/AVIF through ImageDecoder even
-            // when BitmapFactory's old header decoder does not.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val fallback = runCatching {
-                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) {
+                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) {
                             decoder, info, _ ->
                         val maximum = max(info.size.width, info.size.height)
                         var sample = 1
-                        while (maximum / sample > 5100) sample *= 2
+                        while (maximum / sample > 4800) sample *= 2
                         decoder.setTargetSampleSize(sample)
                         decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
                     }
                 }.getOrNull()
                 if (fallback != null) return fallback
             }
-            throw IOException("Görsel biçimi okunamadı. Orijinal JPG, PNG, WEBP ya da PDF seç.")
+            throw IOException(
+                "Seçilen dosya desteklenen bir görsel olarak çözümlenemedi. " +
+                "Orijinal JPG, PNG, WebP veya şifresiz PDF seç."
+            )
         }
         val options = BitmapFactory.Options()
         var sample = 1
-        while (max(bounds.outWidth, bounds.outHeight) / sample > 5100) sample *= 2
+        while (max(bounds.outWidth, bounds.outHeight) / sample > 4800) sample *= 2
         options.inSampleSize = sample
-        val source = context.contentResolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, options)
-        } ?: throw IOException("Görsel çözümlenemedi.")
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888
+        val source = BitmapFactory.decodeFile(path, options)
+            ?: throw IOException("Görsel belleğe açılamadı. Daha küçük bir kopya seç.")
         val rotation = runCatching {
-            context.contentResolver.openInputStream(uri)?.use {
-                when (ExifInterface(it).getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
-                )) {
-                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-                    else -> 0f
-                }
-            } ?: 0f
+            when (ExifInterface(path).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
+            )) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
         }.getOrElse { 0f }
         if (rotation == 0f) return source
         return try {
             Bitmap.createBitmap(source, 0, 0, source.width, source.height,
                 Matrix().apply { postRotate(rotation) }, true)
-        } finally {
-            source.recycle()
-        }
+        } finally { source.recycle() }
     }
 
     private fun resizedPreview(source: Bitmap, maxWidth: Int): Bitmap {
