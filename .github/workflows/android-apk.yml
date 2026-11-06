@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010]
+    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011]
   workflow_dispatch:
 
 permissions:
