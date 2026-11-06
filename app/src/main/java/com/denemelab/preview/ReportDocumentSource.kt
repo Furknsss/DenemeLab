@@ -111,5 +111,3 @@ object ReportDocumentSource {
         hasPdfSignature(file) ||
             (file.extension.equals("pdf", ignoreCase = true) && !hasImageSignature(file))
 }
-
-}
