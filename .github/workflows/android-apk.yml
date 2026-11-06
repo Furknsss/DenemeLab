@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012]
+    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013]
   workflow_dispatch:
 
 permissions:
@@ -29,7 +29,32 @@ jobs:
           packages: platform-tools
       - name: Install Android platform and build tools
         run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
-      - name: Configure Firebase Android app (required for v0.12)
+      - name: Restore stable test APK signing certificate
+        id: signing-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: denemelab-v013-debug-cert-1
+      - name: Prepare and display signing SHA-1 / SHA-256
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey -storepass android -keypass android \
+              -keyalg RSA -keysize 2048 -validity 3650 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          echo "Register this TEST-APK SHA-1 in Firebase Console > Project settings > Your apps:"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
+            -alias androiddebugkey -storepass android | grep -E 'SHA1:|SHA256:'
+          echo "Test-only certificate; release builds require a private production signing key."
+      - name: Save stable debug certificate privately in Actions cache
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: denemelab-v013-debug-cert-1
+      - name: Configure Firebase Android app (required for v0.13)
         env:
           FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
         run: |
@@ -62,6 +87,10 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources app/build/outputs/apk/debug/app-debug.apk > /tmp/denemelab-debug-resources.txt
           if ! grep -q 'string/google_app_id' /tmp/denemelab-debug-resources.txt; then
             echo "::error::Firebase google_app_id is missing from the packaged APK."
+            exit 1
+          fi
+          if ! grep -q 'string/default_web_client_id' /tmp/denemelab-debug-resources.txt; then
+            echo "::error::Google OAuth web client ID missing. Register the SHA-1 printed above in Firebase, redownload google-services.json and update the FIREBASE_ANDROID_CONFIG_B64 secret."
             exit 1
           fi
           unzip -t app/build/outputs/apk/debug/app-debug.apk | tail -1
