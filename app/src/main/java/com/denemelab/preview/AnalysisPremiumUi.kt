@@ -209,8 +209,14 @@ fun AnalysisDashboard(
             }
         }
 
-        // All old analysis cards are intentionally absent:
-        // no repeated donuts, charts, simulations, workspaces or text stacks.
+        // Only one secondary card remains: it turns an observed weakness
+        // into a verifiable learning action, without reinstating clutter.
+        AnalysisFocusPanel(
+            snapshot = snapshot,
+            reduceMotion = reduceMotion,
+            onAddExam = onAdd
+        )
+        // No repeated donuts, charts, simulations or long statistical stacks.
     }
 }
 
