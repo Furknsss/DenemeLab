@@ -83,6 +83,18 @@ jobs:
       - name: Validate built APK
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
+          APK_SHA1=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')
+          KEY_SHA1=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android | grep -m1 'SHA1:' | sed 's/.*SHA1: *//' | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$APK_SHA1" ] || [ -z "$KEY_SHA1" ] || [ "$APK_SHA1" != "$KEY_SHA1" ]; then
+            echo "::error::Actual APK signer differs from the registered debug keystore. Publishing blocked."
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" = "feat/google-account-cloud-only-v013" ] &&
+             [ "$APK_SHA1" != "e9825be8fc2b21d05a8b2975691c86cb70318034" ]; then
+            echo "::error::APK signer is not the SHA-1 registered in DenemeLab Firebase. Publishing blocked."
+            exit 1
+          fi
+          echo "Android APK signer matches the Firebase debug certificate (SHA-1: $APK_SHA1)."
           # Validate the packaged resource, not an AGP-version-specific intermediate path.
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources app/build/outputs/apk/debug/app-debug.apk > /tmp/denemelab-debug-resources.txt
           if ! grep -q 'string/google_app_id' /tmp/denemelab-debug-resources.txt; then
