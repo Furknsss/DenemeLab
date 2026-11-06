@@ -1,6 +1,9 @@
 package com.denemelab.preview
 
 import android.app.Activity
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.foundation.BorderStroke
@@ -58,6 +61,48 @@ fun FirebaseCloudSection(onRestored: () -> Unit) {
     var loadedRemote by remember { mutableStateOf(false) }
     var restoreFile by remember { mutableStateOf<File?>(null) }
     var restoreInfo by remember { mutableStateOf<FirebaseBackupInfo?>(null) }
+    var loginFlow by remember {
+        mutableStateOf(GoogleAccountAuth.preferredFlow(Build.VERSION.SDK_INT))
+    }
+    var showAlternate by remember { mutableStateOf(false) }
+
+    val afterGoogleSignIn: suspend (String) -> Unit = { signedIn ->
+        // Firebase Auth session is established; first read the current remote
+        // pointer before any automatic upload. Never merge destructively.
+        account = signedIn
+        val existing = FirebaseCloudBackup.current(context)
+        remote = existing
+        loadedRemote = true
+        if (existing == null) {
+            val first = FirebaseCloudBackup.upload(context)
+            FirebaseCloudBackup.setAuto(context, true)
+            remote = first
+            auto = true
+            message = "Google hesabın bağlandı. İlk bulut yedeğin alındı; " +
+                "sonraki değişiklikler otomatik yedeklenecek."
+        } else {
+            FirebaseCloudBackup.setAuto(context, false)
+            auto = false
+            message = "Google hesabın bağlandı. Bulutta önceki yedeğin bulundu; " +
+                "telefon verilerine dokunulmadı. Önce yedeğini incele."
+        }
+    }
+
+    val compatibilityLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        scope.launch {
+            try {
+                val signedIn = GoogleAccountAuth.signInWithCompatibilityResult(
+                    context, result.resultCode, result.data
+                )
+                afterGoogleSignIn(signedIn)
+            } catch (e: Exception) {
+                failure = e.localizedMessage ?: "Google hesabına giriş tamamlanamadı."
+                showAlternate = true
+            } finally { busy = false }
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose { restoreFile?.delete() }
@@ -121,33 +166,28 @@ fun FirebaseCloudSection(onRestored: () -> Unit) {
                     busy = true
                     message = null
                     failure = null
-                    scope.launch {
+                    if (loginFlow == GoogleAccountAuth.Flow.COMPATIBILITY) {
                         try {
-                            val signedIn = GoogleAccountAuth.signIn(host)
-                            account = signedIn
-                            // Never upload before checking whether the account
-                            // already owns a potentially richer cloud archive.
-                            val existing = FirebaseCloudBackup.current(context)
-                            remote = existing
-                            loadedRemote = true
-                            if (existing == null) {
-                                val first = FirebaseCloudBackup.upload(context)
-                                FirebaseCloudBackup.setAuto(context, true)
-                                remote = first
-                                auto = true
-                                message = "Google hesabın bağlandı. İlk bulut yedeğin alındı; " +
-                                    "sonraki değişiklikler otomatik yedeklenecek."
-                            } else {
-                                FirebaseCloudBackup.setAuto(context, false)
-                                auto = false
-                                message = "Hesabında önceden kayıtlı bir yedek bulundu. " +
-                                    "Önce buluttaki bilgileri incele; mevcut kayıtlarını " +
-                                    "senin onayın olmadan değiştirmiyoruz."
-                            }
+                            compatibilityLauncher.launch(
+                                GoogleAccountAuth.compatibilityIntent(host)
+                            )
                         } catch (e: Exception) {
-                            failure = e.localizedMessage ?: "Google ile oturum açılamadı."
-                        } finally {
+                            failure = "Google hesap seçme penceresi başlatılamadı: " +
+                                (e.localizedMessage ?: "Google Play Hizmetleri kullanılamıyor.")
+                            showAlternate = true
                             busy = false
+                        }
+                    } else {
+                        scope.launch {
+                            try {
+                                val signedIn = GoogleAccountAuth.signInWithCredentialManager(host)
+                                afterGoogleSignIn(signedIn)
+                            } catch (e: Exception) {
+                                failure = e.localizedMessage ?: "Google ile oturum açılamadı."
+                                showAlternate = true
+                            } finally {
+                                busy = false
+                            }
                         }
                     }
                 },
@@ -160,6 +200,22 @@ fun FirebaseCloudSection(onRestored: () -> Unit) {
                 Text("G", fontWeight = FontWeight.Black, fontSize = 17.sp)
                 Spacer(Modifier.width(12.dp))
                 Text("Google ile devam et", fontWeight = FontWeight.SemiBold)
+            }
+            if (showAlternate) {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        loginFlow = if (loginFlow == GoogleAccountAuth.Flow.COMPATIBILITY)
+                            GoogleAccountAuth.Flow.CREDENTIAL_MANAGER
+                        else GoogleAccountAuth.Flow.COMPATIBILITY
+                        failure = null
+                        message = "Diğer Google hesap seçme yöntemi seçildi. Giriş için yukarıdaki düğmeye bas."
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Diğer Google giriş yöntemini dene",
+                        color = CloudInk, fontSize = 12.sp)
+                }
             }
         } else {
             Surface(shape = RoundedCornerShape(16.dp), color = CloudPale) {
