@@ -53,8 +53,8 @@ data class ExamEntrySubmission(val exam: ExamRecord, val newPublisherLogo: Uri?)
 
 /**
  * One clear save action. No misleading draft save button.
- * Manual score input is fully functional; photo document parsing is not yet
- * enabled and therefore never silently saves fake OCR data.
+ * Manual scores and locally scanned report documents require explicit
+ * verification; unconfirmed OCR results are never silently saved.
  */
 @Composable
 fun ExamEntryV3(
@@ -67,7 +67,8 @@ fun ExamEntryV3(
     var selectedMethod by remember { mutableStateOf("Manuel Ekle") }
     var examName by remember { mutableStateOf("") }
     var publisherName by remember { mutableStateOf("") }
-    var newLogo by remember { mutableStateOf<Uri?>(null) }
+    var publisherMenuOpen by remember { mutableStateOf(false) }
+    var publisherSearch by remember { mutableStateOf("") }
     var examCategory by remember { mutableStateOf("Genel") }
     var examType by remember { mutableStateOf("TYT") }
     var track by remember { mutableStateOf("SAY") }
@@ -85,9 +86,6 @@ fun ExamEntryV3(
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.timeInMillis)
-    }
-    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) newLogo = uri
     }
     var resultsImage by remember { mutableStateOf<Uri?>(null) }
     var reportResult by remember { mutableStateOf<ReportResult?>(null) }
@@ -111,9 +109,6 @@ fun ExamEntryV3(
         }
     }
 
-    val selectedBrand = publishers.firstOrNull {
-        it.key == PublisherCatalog.normalize(publisherName)
-    }
     val numbers = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
     LaunchedEffect(resultsImage) {
         val uri = resultsImage ?: return@LaunchedEffect
@@ -218,55 +213,70 @@ fun ExamEntryV3(
                         label = { Text("Deneme adı") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp))
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = publisherName,
-                        onValueChange = { input ->
-                            if (PublisherCatalog.normalize(input) != PublisherCatalog.normalize(publisherName))
-                                newLogo = null
-                            publisherName = input.take(90)
-                        },
-                        label = { Text("Yayın adı") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp))
-                    if (publishers.isNotEmpty()) {
-                        Spacer(Modifier.height(9.dp))
-                        Text("Daha önce eklediğin yayınlar", color = Muted, fontSize = 11.sp)
-                        Spacer(Modifier.height(6.dp))
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            publishers.forEach { publisher ->
-                                EntryChip(publisher.displayName,
-                                    selected = publisher.key == PublisherCatalog.normalize(publisherName)) {
-                                    publisherName = publisher.displayName
-                                    newLogo = null
+                    Text("Yayın", color = Black, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(7.dp))
+                    Box(Modifier.fillMaxWidth()) {
+                        Surface(
+                            onClick = {
+                                publisherSearch = ""
+                                publisherMenuOpen = true
+                            },
+                            shape = RoundedCornerShape(15.dp),
+                            color = Soft,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                                PublisherLogo(publisherName, size = 42.dp)
+                                Spacer(Modifier.width(11.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(if (publisherName.isBlank()) "Yayın seç" else publisherName,
+                                        color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text(if (publisherName.isBlank()) "Listeden yayınevini belirle" else
+                                        "Veri paketindeki kayıtlı logo otomatik kullanılır",
+                                        color = Muted, fontSize = 11.sp)
                                 }
+                                Icon(Icons.Rounded.ExpandMore, contentDescription = "Yayın seç", tint = Black)
                             }
                         }
-                    }
-                    Spacer(Modifier.height(13.dp))
-                    Surface(color = Soft, shape = RoundedCornerShape(17.dp),
-                        modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PublisherLogo(publisherName, size = 55.dp, pendingSelection = newLogo)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    when {
-                                        newLogo != null -> "Yeni yayın logosu seçildi"
-                                        selectedBrand?.logoFile?.isNotBlank() == true ->
-                                            "Kayıtlı yayın logosu kullanılacak"
-                                        else -> "Yayın logosu ekle"
+                        DropdownMenu(
+                            expanded = publisherMenuOpen,
+                            onDismissRequest = { publisherMenuOpen = false },
+                            containerColor = Paper,
+                            modifier = Modifier.fillMaxWidth(0.87f).heightIn(max = 420.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = publisherSearch,
+                                onValueChange = { publisherSearch = it },
+                                placeholder = { Text("Yayın ara", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp)
+                            )
+                            val matches = publishers.filter {
+                                PublisherCatalog.normalize(it.displayName).contains(
+                                    PublisherCatalog.normalize(publisherSearch))
+                            }
+                            matches.forEach { publisher ->
+                                DropdownMenuItem(
+                                    text = { Text(publisher.displayName, fontSize = 13.sp) },
+                                    leadingIcon = {
+                                        PublisherLogo(publisher.displayName, size = 30.dp)
                                     },
-                                    color = Black, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Bir kez ekle; aynı yayında otomatik gelsin.",
-                                    color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                                    onClick = {
+                                        publisherName = publisher.displayName
+                                        publisherMenuOpen = false
+                                    }
+                                )
                             }
-                            TextButton(onClick = { logoPicker.launch("image/*") }) {
-                                Text(if (newLogo == null && selectedBrand?.logoFile?.isNotBlank() != true) "Seç" else "Değiştir",
-                                    color = Black, fontSize = 12.sp)
+                            if (matches.isEmpty()) {
+                                Text("Yayın bulunamadı. Ayarlar > Veri Paketi'nden ekleyebilirsin.",
+                                    color = Muted, fontSize = 12.sp,
+                                    modifier = Modifier.padding(14.dp))
                             }
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Yeni yayın veya logo eklemek için Ayarlar → Veri Paketi → Logo ekle.",
+                        color = Muted, fontSize = 11.sp)
                     Spacer(Modifier.height(15.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Deneme tarihi", color = Black, fontSize = 13.sp,
@@ -519,7 +529,7 @@ fun ExamEntryV3(
                                 color = Black, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                             Text(if (saveEnabled) "$correct doğru · $wrong yanlış · $blanks boş" else
                                 if (selectedMethod == "Manuel Ekle") "Gerekli alanları doldur" else
-                                    "AI belge okuma henüz etkin değil",
+                                    "Belgeyi okuyup ders ve konu sonuçlarını doğrula",
                                 color = Muted, fontSize = 11.sp)
                         }
                     }
@@ -542,7 +552,7 @@ fun ExamEntryV3(
                                 source = if (selectedMethod == "Fotoğraf ile Ekle") "Belge OCR + kullanıcı onayı"
                                     else "Manuel"
                             )
-                            onSave(ExamEntrySubmission(exam, newLogo))
+                            onSave(ExamEntrySubmission(exam, null))
                         },
                         enabled = saveEnabled,
                         color = if (saveEnabled) Black else Hairline,
