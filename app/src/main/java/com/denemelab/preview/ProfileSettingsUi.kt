@@ -199,7 +199,10 @@ fun DenemeLabSettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text("Ayarlar", color = Ink, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(15.dp)
+            ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Hareketleri azalt", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
