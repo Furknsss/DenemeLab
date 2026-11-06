@@ -2,6 +2,11 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+// Keep ordinary CI/test APKs buildable before a Firebase project is connected.
+// A real connected APK requires app/google-services.json at build time.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
 
 android {
     namespace = "com.denemelab.preview"
@@ -10,8 +15,8 @@ android {
         applicationId = "com.denemelab.preview"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.8.0"
+        versionCode = 15
+        versionName = "0.12.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -29,6 +34,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.coil.compose)
     implementation(libs.mlkit.text.recognition)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")

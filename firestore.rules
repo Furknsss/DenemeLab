@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // No public documents. Each signed-in student can access only their UID.
+    match /users/{uid}/metadata/{name} {
+      allow get: if owns(uid) && name == 'current';
+      allow list, delete: if false;
+      allow create, update: if owns(uid) && name == 'current'
+        && request.resource.data.keys().hasOnly(['id', 'previous', 'uploadedAt'])
+        && request.resource.data.id is string
+        && request.resource.data.previous is string
+        && request.resource.data.uploadedAt is int;
+    }
+
+    match /users/{uid}/backups/{id} {
+      allow get: if owns(uid);
+      allow list, update: if false;
+      allow create: if owns(uid)
+        && request.resource.data.keys().hasOnly([
+          'createdAt', 'exams', 'questions', 'logos',
+          'byteSize', 'sha256', 'partCount'
+        ])
+        && request.resource.data.byteSize is int
+        && request.resource.data.byteSize > 0
+        && request.resource.data.byteSize <= 8388608
+        && request.resource.data.partCount is int
+        && request.resource.data.partCount > 0
+        && request.resource.data.partCount <= 64
+        && request.resource.data.sha256 is string
+        && request.resource.data.sha256.size() == 64;
+      allow delete: if owns(uid);
+
+      match /parts/{partId} {
+        allow get: if owns(uid);
+        allow list, update: if false;
+        allow create: if owns(uid)
+          && request.resource.data.keys().hasOnly(['index', 'base64'])
+          && request.resource.data.index is int
+          && request.resource.data.base64 is string
+          && request.resource.data.base64.size() <= 230000;
+        allow delete: if owns(uid);
+      }
+    }
+  }
+}

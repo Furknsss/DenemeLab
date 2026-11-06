@@ -2,6 +2,7 @@ package com.denemelab.preview
 
 import android.app.DatePickerDialog
 import android.net.Uri
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -40,6 +41,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import java.util.Calendar
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -53,8 +58,8 @@ data class ExamEntrySubmission(val exam: ExamRecord, val newPublisherLogo: Uri?)
 
 /**
  * One clear save action. No misleading draft save button.
- * Manual score input is fully functional; photo document parsing is not yet
- * enabled and therefore never silently saves fake OCR data.
+ * Manual scores and locally scanned report documents require explicit
+ * verification; unconfirmed OCR results are never silently saved.
  */
 @Composable
 fun ExamEntryV3(
@@ -67,7 +72,8 @@ fun ExamEntryV3(
     var selectedMethod by remember { mutableStateOf("Manuel Ekle") }
     var examName by remember { mutableStateOf("") }
     var publisherName by remember { mutableStateOf("") }
-    var newLogo by remember { mutableStateOf<Uri?>(null) }
+    var publisherMenuOpen by remember { mutableStateOf(false) }
+    var publisherSearch by remember { mutableStateOf("") }
     var examCategory by remember { mutableStateOf("Genel") }
     var examType by remember { mutableStateOf("TYT") }
     var track by remember { mutableStateOf("SAY") }
@@ -86,10 +92,11 @@ fun ExamEntryV3(
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.timeInMillis)
     }
-    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) newLogo = uri
-    }
     var resultsImage by remember { mutableStateOf<Uri?>(null) }
+    var pendingReportUri by remember { mutableStateOf<Uri?>(null) }
+    var reportSelectionId by remember { mutableIntStateOf(0) }
+    var localReportFile by remember { mutableStateOf<File?>(null) }
+    var preparingReport by remember { mutableStateOf(false) }
     var reportResult by remember { mutableStateOf<ReportResult?>(null) }
     var reportError by remember { mutableStateOf<String?>(null) }
     var readingReport by remember { mutableStateOf(false) }
@@ -98,21 +105,47 @@ fun ExamEntryV3(
     val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
     val successItems = remember { mutableStateListOf<TopicOutcome>() }
     var editingIssue by remember { mutableStateOf<Pair<String,String>?>(null) }
-    val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    var showPhotoTopicReview by remember { mutableStateOf(false) }
+    val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             reportResult = null
             reportError = null
             reviewedReport = false
             verifiedKeys.clear()
             issueItems.clear()
             successItems.clear()
-            resultsImage = uri
+            resultsImage = null
+            pendingReportUri = uri
+            reportSelectionId += 1
         }
     }
-
-    val selectedBrand = publishers.firstOrNull {
-        it.key == PublisherCatalog.normalize(publisherName)
+    LaunchedEffect(reportSelectionId) {
+        val selected = pendingReportUri ?: return@LaunchedEffect
+        preparingReport = true
+        try {
+            val staged = withContext(Dispatchers.IO) {
+                ReportDocumentSource.stage(context, selected)
+            }
+            localReportFile?.delete()
+            localReportFile = staged
+            resultsImage = Uri.fromFile(staged)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            reportError = e.localizedMessage ?: "Belgeye erişilemiyor."
+            resultsImage = null
+        } finally {
+            preparingReport = false
+        }
     }
+    DisposableEffect(Unit) {
+        onDispose { localReportFile?.delete() }
+    }
+
     val numbers = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
     LaunchedEffect(resultsImage) {
         val uri = resultsImage ?: return@LaunchedEffect
@@ -129,13 +162,15 @@ fun ExamEntryV3(
             verifiedKeys.clear()
             parsed.counts.forEach { (key, value) ->
                 numbers[key] = value
-                verifiedKeys[key] = true
+                verifiedKeys[key] = key !in parsed.ambiguousLessons
             }
             issueItems.clear()
             issueItems.addAll(parsed.topics)
             successItems.clear()
             successItems.addAll(parsed.outcomes)
             if (examName.isBlank() && parsed.title.isNotBlank()) examName = parsed.title
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             reportResult = null
             reportError = e.localizedMessage ?: "Belge okunamadı."
@@ -168,7 +203,7 @@ fun ExamEntryV3(
     )
     val photoReady = reportResult != null && !readingReport && reviewedReport &&
         examType == "TYT" && examCategory == "Genel" &&
-        templates.all { verifiedKeys[it.key] == true }
+        templates.all { verifiedKeys[it.key] == true } && successEvidenceValid
     val saveEnabled = examName.isNotBlank() &&
         publisherName.isNotBlank() && !isSaving && issueError == null &&
         (if (examCategory == "Genel") generalOk else branchOk) &&
@@ -217,55 +252,70 @@ fun ExamEntryV3(
                         label = { Text("Deneme adı") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp))
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = publisherName,
-                        onValueChange = { input ->
-                            if (PublisherCatalog.normalize(input) != PublisherCatalog.normalize(publisherName))
-                                newLogo = null
-                            publisherName = input.take(90)
-                        },
-                        label = { Text("Yayın adı") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp))
-                    if (publishers.isNotEmpty()) {
-                        Spacer(Modifier.height(9.dp))
-                        Text("Daha önce eklediğin yayınlar", color = Muted, fontSize = 11.sp)
-                        Spacer(Modifier.height(6.dp))
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            publishers.forEach { publisher ->
-                                EntryChip(publisher.displayName,
-                                    selected = publisher.key == PublisherCatalog.normalize(publisherName)) {
-                                    publisherName = publisher.displayName
-                                    newLogo = null
+                    Text("Yayın", color = Black, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(7.dp))
+                    Box(Modifier.fillMaxWidth()) {
+                        Surface(
+                            onClick = {
+                                publisherSearch = ""
+                                publisherMenuOpen = true
+                            },
+                            shape = RoundedCornerShape(15.dp),
+                            color = Soft,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                                PublisherLogo(publisherName, size = 42.dp)
+                                Spacer(Modifier.width(11.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(if (publisherName.isBlank()) "Yayın seç" else publisherName,
+                                        color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text(if (publisherName.isBlank()) "Listeden yayınevini belirle" else
+                                        "Veri paketindeki kayıtlı logo otomatik kullanılır",
+                                        color = Muted, fontSize = 11.sp)
                                 }
+                                Icon(Icons.Rounded.ExpandMore, contentDescription = "Yayın seç", tint = Black)
                             }
                         }
-                    }
-                    Spacer(Modifier.height(13.dp))
-                    Surface(color = Soft, shape = RoundedCornerShape(17.dp),
-                        modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PublisherLogo(publisherName, size = 55.dp, pendingSelection = newLogo)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    when {
-                                        newLogo != null -> "Yeni yayın logosu seçildi"
-                                        selectedBrand?.logoFile?.isNotBlank() == true ->
-                                            "Kayıtlı yayın logosu kullanılacak"
-                                        else -> "Yayın logosu ekle"
+                        DropdownMenu(
+                            expanded = publisherMenuOpen,
+                            onDismissRequest = { publisherMenuOpen = false },
+                            containerColor = Paper,
+                            modifier = Modifier.fillMaxWidth(0.87f).heightIn(max = 420.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = publisherSearch,
+                                onValueChange = { publisherSearch = it },
+                                placeholder = { Text("Yayın ara", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp)
+                            )
+                            val matches = publishers.filter {
+                                PublisherCatalog.normalize(it.displayName).contains(
+                                    PublisherCatalog.normalize(publisherSearch))
+                            }
+                            matches.forEach { publisher ->
+                                DropdownMenuItem(
+                                    text = { Text(publisher.displayName, fontSize = 13.sp) },
+                                    leadingIcon = {
+                                        PublisherLogo(publisher.displayName, size = 30.dp)
                                     },
-                                    color = Black, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Bir kez ekle; aynı yayında otomatik gelsin.",
-                                    color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                                    onClick = {
+                                        publisherName = publisher.displayName
+                                        publisherMenuOpen = false
+                                    }
+                                )
                             }
-                            TextButton(onClick = { logoPicker.launch("image/*") }) {
-                                Text(if (newLogo == null && selectedBrand?.logoFile?.isNotBlank() != true) "Seç" else "Değiştir",
-                                    color = Black, fontSize = 12.sp)
+                            if (matches.isEmpty()) {
+                                Text("Yayın bulunamadı. Ayarlar > Veri Paketi'nden ekleyebilirsin.",
+                                    color = Muted, fontSize = 12.sp,
+                                    modifier = Modifier.padding(14.dp))
                             }
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Yeni yayın veya logo eklemek için Ayarlar → Veri Paketi → Logo ekle.",
+                        color = Muted, fontSize = 11.sp)
                     Spacer(Modifier.height(15.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Deneme tarihi", color = Black, fontSize = 13.sp,
@@ -320,9 +370,11 @@ fun ExamEntryV3(
                     }
                     Spacer(Modifier.height(22.dp))
                     if (selectedMethod == "Fotoğraf ile Ekle") {
-                        PhotoImportPanel(resultsImage) { reportPicker.launch("image/*") }
+                        PhotoImportPanel(resultsImage) {
+                            reportPicker.launch(arrayOf("image/*", "application/pdf"))
+                        }
                         Spacer(Modifier.height(13.dp))
-                        if (readingReport) {
+                        if (preparingReport || readingReport) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(color = Black, strokeWidth = 2.dp,
                                     modifier = Modifier.size(19.dp))
@@ -330,19 +382,47 @@ fun ExamEntryV3(
                                 Text("Belge cihaz üzerinde okunuyor...", color = Muted, fontSize = 12.sp)
                             }
                         }
-                        if (reportError != null) Text("Okuma hatası: " + reportError,
-                            color = Color(0xFFB42318), fontSize = 12.sp)
+                        if (reportError != null) {
+                            Text("Belge okuma sorunu: " + reportError,
+                                color = Color(0xFFB42318), fontSize = 12.sp)
+                            Text("Dosya telefonda açılabiliyorsa orijinal PDF/JPG/PNG olarak kaydedip tekrar seç. Okunamayan rakamlar otomatik kaydedilmez.",
+                                color = Muted, fontSize = 11.sp)
+                        }
                         reportResult?.let { report ->
                             Text("${report.foundCount}/10 ders algılandı",
                                 color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             report.warnings.forEach {
                                 Text(it, color = Muted, fontSize = 11.sp)
                             }
-                            Text("${successItems.size} konu için doğru cevap kanıtı algılandı.",color = Black,fontSize = 11.sp)
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                "${successItems.size} kazanım · ${successItems.sumOf { it.questions }} sorunun D/Y/Boş ayrımı okundu",
+                                color = Black, fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (report.detectedTopicRows > successItems.size)
+                                Text(
+                                    "${report.detectedTopicRows - successItems.size} konu satırı belirsiz; kontrol edip gerekirse ekle.",
+                                    color = Color(0xFFB42318), fontSize = 11.sp
+                                )
                             if (!successEvidenceValid) Text(
-                                "Ders sonuçlarıyla uyuşmayan konu doğruları başarı analizine aktarılmayacak.",
+                                "Konu sayıları ders toplamlarıyla uyuşmuyor. Kaydetmeden önce düzelt.",
                                 color = Color(0xFFB42318), fontSize = 11.sp)
-                            Text("OCR ile okunan sayıları ve konuları kontrol et. Yanlış okunan dersin sürgüsünü düzelt.",
+                            Spacer(Modifier.height(9.dp))
+                            Surface(
+                                onClick = { showPhotoTopicReview = true },
+                                shape = RoundedCornerShape(13.dp), color = Soft,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Tüm konuları ve D / Y / Boş sayılarını incele",
+                                    Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+                                    color = Black, fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text("OCR sonucu kesin kabul edilmez. Konu sayıları ve dersler tutarlı olmalı.",
                                 color = Muted, fontSize = 11.sp)
                         }
                         Spacer(Modifier.height(16.dp))
@@ -392,6 +472,8 @@ fun ExamEntryV3(
                                                         numbers[lesson.key] = c to w
                                                         if (selectedMethod == "Fotoğraf ile Ekle")
                                                             verifiedKeys[lesson.key] = true
+                                                        if (selectedMethod == "Fotoğraf ile Ekle")
+                                                            reviewedReport = false
                                                     }
                                                     Spacer(Modifier.height(8.dp))
                                                     if (selectedMethod == "Fotoğraf ile Ekle" &&
@@ -490,7 +572,7 @@ fun ExamEntryV3(
                                 color = Black, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                             Text(if (saveEnabled) "$correct doğru · $wrong yanlış · $blanks boş" else
                                 if (selectedMethod == "Manuel Ekle") "Gerekli alanları doldur" else
-                                    "AI belge okuma henüz etkin değil",
+                                    "Belgeyi okuyup ders ve konu sonuçlarını doğrula",
                                 color = Muted, fontSize = 11.sp)
                         }
                     }
@@ -513,7 +595,7 @@ fun ExamEntryV3(
                                 source = if (selectedMethod == "Fotoğraf ile Ekle") "Belge OCR + kullanıcı onayı"
                                     else "Manuel"
                             )
-                            onSave(ExamEntrySubmission(exam, newLogo))
+                            onSave(ExamEntrySubmission(exam, null))
                         },
                         enabled = saveEnabled,
                         color = if (saveEnabled) Black else Hairline,
@@ -528,6 +610,30 @@ fun ExamEntryV3(
                 }
             }
         }
+    }
+    if (showPhotoTopicReview) {
+        PhotoTopicReviewDialog(
+            rows = successItems.toList(),
+            onDismiss = { showPhotoTopicReview = false },
+            onChange = { updated ->
+                successItems.clear()
+                successItems.addAll(updated)
+                val manual = issueItems.filterNot { it.provenance == "Belge OCR" }
+                issueItems.clear()
+                issueItems.addAll(manual)
+                updated.forEach { row ->
+                    if (row.wrong > 0) issueItems.add(ExamTopicIssue(
+                        row.lessonKey, row.lessonName, row.topic,
+                        "Yanlış", row.wrong, "Belirtilmedi", "Belge OCR"
+                    ))
+                    if (row.blank > 0) issueItems.add(ExamTopicIssue(
+                        row.lessonKey, row.lessonName, row.topic,
+                        "Boş", row.blank, "Belirtilmedi", "Belge OCR"
+                    ))
+                }
+                reviewedReport = false
+            }
+        )
     }
     editingIssue?.let { (key, kind) ->
         val lesson = if (key == "branch") SubjectScore(
@@ -615,13 +721,22 @@ private fun PhotoImportPanel(photo: Uri?, onPick: () -> Unit) {
             Text("Sonuç belgeni seç", color = Black,
                 fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             Spacer(Modifier.height(8.dp))
-            Text("ML Kit belgeyi cihazında analiz eder. Okunamayan dersleri elle düzelt; kontrol etmeden kayıt yapılmaz.",
+            Text("PDF veya yüksek çözünürlüklü fotoğraf seç. Küçük satırlar ayrı taranır; kaydetmeden önce bütün konuları kontrol et.",
                 color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 17.sp)
             if (photo != null) {
                 Spacer(Modifier.height(12.dp))
-                AsyncImage(model = photo, contentDescription = "Seçilen sonuç belgesi",
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
-                    contentScale = ContentScale.Fit)
+                val resolver = LocalContext.current.contentResolver
+                val isPdf = resolver.getType(photo)?.contains("pdf", ignoreCase = true) == true ||
+                    photo.lastPathSegment?.endsWith(".pdf", ignoreCase = true) == true
+                if (isPdf) {
+                    Text("PDF belge seçildi · yüksek çözünürlüklü tarama",
+                        color = Black, fontSize = 12.sp,
+                        textAlign = TextAlign.Center)
+                } else {
+                    AsyncImage(model = photo, contentDescription = "Seçilen sonuç belgesi",
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                        contentScale = ContentScale.Fit)
+                }
             }
             Spacer(Modifier.height(13.dp))
             Surface(onClick = onPick, shape = RoundedCornerShape(14.dp), color = Paper,

@@ -105,6 +105,8 @@ private fun DenemeLabApp() {
     var selectedProgram by remember { mutableStateOf<AtlasProgram?>(null) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showDataPackDialog by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
     var showAtlasDialog by remember { mutableStateOf(false) }
     var openSelectedDetail by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
@@ -121,12 +123,6 @@ private fun DenemeLabApp() {
             selectedProgram = try { YokAtlasCatalog.programByCode(target.programCode) }
                 catch (_: Exception) { null }
         } else selectedProgram = null
-    }
-
-    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            Toast.makeText(context, "PDF seçildi. Otomatik analiz henüz etkin değil.", Toast.LENGTH_LONG).show()
-        }
     }
 
     val palette = lightColorScheme(
@@ -151,8 +147,6 @@ private fun DenemeLabApp() {
                         0 -> HomeScreen(exams, questions, onAdd = { showAddExam = true }, onNavigate = { tab = it })
                         1 -> ExamsScreen(
                             exams, generalMode, onMode = { generalMode = it },
-                            onAdd = { showAddExam = true },
-                            onPdf = { pdfPicker.launch(arrayOf("application/pdf")) },
                             onDetail = { openedExam = it })
                         2 -> AnalysisDashboard(exams, analysisMode,
                             onCategory = { analysisMode = it },
@@ -227,10 +221,25 @@ private fun DenemeLabApp() {
     if (showProfileDialog) StudentProfileDialog(
         initial = studentProfile,
         onDismiss = { showProfileDialog = false },
-        onSave = {
-            studentProfile = it
-            LocalData.saveProfile(context, it)
-            showProfileDialog = false
+        onSave = { selected ->
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val savedPhoto = if (selected.pictureUri.isBlank()) "" else
+                            ProfilePictureStore.persist(context, selected.pictureUri)
+                        val updated = selected.copy(pictureUri = savedPhoto)
+                        LocalData.saveProfile(context, updated)
+                        updated
+                    }
+                }
+                result.onSuccess {
+                    studentProfile = it
+                    showProfileDialog = false
+                }.onFailure {
+                    Toast.makeText(context, it.message ?: "Profil kaydedilemedi.",
+                        Toast.LENGTH_LONG).show()
+                }
+            }
         },
         onPickTarget = {
             showProfileDialog = false
@@ -244,7 +253,39 @@ private fun DenemeLabApp() {
             reduceMotion = it
             LocalData.saveReduceMotion(context, it)
         },
+        onDataPack = {
+            showSettingsDialog = false
+            showDataPackDialog = true
+        },
+        onBackup = {
+            showSettingsDialog = false
+            showBackupDialog = true
+        },
         onDismiss = { showSettingsDialog = false }
+    )
+    if (showDataPackDialog) PublisherDataPackDialog(
+        publishers = publishers,
+        onDismiss = { showDataPackDialog = false },
+        onCatalogChanged = {
+            publishers.clear()
+            publishers.addAll(PublisherCatalog.list(context))
+        }
+    )
+    if (showBackupDialog) BackupSettingsDialog(
+        onDismiss = { showBackupDialog = false },
+        onRestored = {
+            exams.clear()
+            exams.addAll(LocalData.loadExams(context))
+            questions.clear()
+            questions.addAll(LocalData.loadQuestions(context))
+            publishers.clear()
+            publishers.addAll(PublisherCatalog.list(context))
+            target = LocalData.loadTarget(context)
+            studentProfile = LocalData.loadProfile(context)
+            reduceMotion = LocalData.reduceMotion(context)
+            showBackupDialog = false
+            Toast.makeText(context, "Yedek doğrulandı ve geri yüklendi.", Toast.LENGTH_LONG).show()
+        }
     )
     if (showAtlasDialog) AtlasSearchDialog(
         onDismiss = { showAtlasDialog = false; openSelectedDetail = false },
@@ -482,25 +523,11 @@ private fun HomeScreen(exams: List<ExamRecord>, questions: List<QuestionRecord>,
 
 @Composable
 private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) -> Unit,
-                        onAdd: () -> Unit, onPdf: () -> Unit, onDetail: (ExamRecord) -> Unit) {
+                        onDetail: (ExamRecord) -> Unit) {
     ScrollScreen {
         Headline("Denemeler", "Bütün sonuçların, tek bir düzenli arşivde.")
         CategoryPicker(mode, onMode)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(onClick = onAdd, modifier = Modifier.weight(1f),
-                color = Ink, shape = RoundedCornerShape(16.dp)) {
-                Text("+  Deneme ekle", Modifier.padding(15.dp), color = Color.White,
-                    fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, fontSize = 13.sp)
-            }
-            Surface(onClick = onPdf, modifier = Modifier.weight(1f),
-                color = Pale, shape = RoundedCornerShape(16.dp)) {
-                Text("PDF seç", Modifier.padding(15.dp), color = Ink,
-                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, fontSize = 13.sp)
-            }
-        }
-        Spacer(Modifier.height(11.dp))
-        Muted("PDF seçici çalışır. Otomatik optik okuma sonraki aşamada etkinleşecek.")
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(18.dp))
         val filtered = exams.filter { it.category == mode }.sortedByDescending { it.examDate }
         SectionTitle(if (mode == "Genel") "Genel denemelerim" else "Branş denemelerim")
         if (filtered.isEmpty()) {

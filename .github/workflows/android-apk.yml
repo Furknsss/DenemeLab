@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-topic-simulator-v08]
+    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +29,13 @@ jobs:
           packages: platform-tools
       - name: Install Android platform and build tools
         run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+      - name: Load optional Firebase Android config
+        env:
+          FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
+        run: |
+          if [ -n "$FIREBASE_ANDROID_CONFIG_B64" ]; then
+            printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+          fi
       - name: Run deterministic domain unit tests
         run: bash ./gradlew :app:testDebugUnitTest --no-daemon --no-configuration-cache --max-workers=2
       - name: Build independent test APK
@@ -44,4 +51,4 @@ jobs:
           name: DenemeLab-Android-Test-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 5
