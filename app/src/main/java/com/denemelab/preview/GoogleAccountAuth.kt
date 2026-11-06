@@ -89,12 +89,15 @@ object GoogleAccountAuth {
     suspend fun signInWithCompatibilityResult(
         context: Context, resultCode: Int, data: Intent?
     ): String {
-        if (resultCode != Activity.RESULT_OK) {
+        if (data == null) {
             throw GoogleSelectionNotCompleted(
-                "Google hesabı seçimi tamamlanmadı. Pencereyi sen kapatmadıysan " +
-                    "'Diğer giriş yöntemini dene' seçeneğini kullan."
+                "Google hesap penceresi sonuç döndürmeden kapandı. " +
+                    "Pencere kendiliğinden kapanıyorsa diğer giriş yöntemini dene."
             )
         }
+        // Inspect status even if Activity RESULT_CANCELED: on some Play
+        // Services versions DEVELOPER_ERROR(10) is also returned with a
+        // cancelled result. Never mislabel OAuth configuration errors.
         val account = try {
             GoogleSignIn.getSignedInAccountFromIntent(data)
                 .getResult(ApiException::class.java)
@@ -117,6 +120,12 @@ object GoogleAccountAuth {
                     IOException("Google Play Hizmetleri giriş hatası (kod " +
                         e.statusCode + "). Diğer giriş yöntemini deneyebilirsin.", e)
             }
+        }
+        if (resultCode != Activity.RESULT_OK) {
+            throw GoogleSelectionNotCompleted(
+                "Google hesabı seçimi tamamlanmadı. " +
+                    "Pencere kendiliğinden kapandıysa diğer giriş yöntemini dene."
+            )
         }
         val idToken = account?.idToken
             ?: throw IOException(
