@@ -191,6 +191,7 @@ fun StudentProfileDialog(
 fun DenemeLabSettingsDialog(
     reduceMotion: Boolean,
     onMotionChanged: (Boolean) -> Unit,
+    onDataPack: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -211,6 +212,20 @@ fun DenemeLabSettingsDialog(
                 Text("Tema", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text("Beyaz / siyah premium tema", color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
+                Surface(onClick = onDataPack, color = Subtle, shape = RoundedCornerShape(15.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Veri Paketi", color = Ink, fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Logo paketini yönet, yayın seç ve görsel yükle",
+                                color = Muted, fontSize = 11.sp)
+                        }
+                        Text("Aç →", color = Ink, fontSize = 12.sp)
+                    }
+                }
+                HorizontalDivider(color = Border)
                 Text("Veri ve gizlilik", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text("Profilin ve denemelerin bu sürümde cihazında tutulur. Üniversite aramaları YÖK Atlas sunucusuna iletilir.",
                     color = Muted, fontSize = 12.sp)
@@ -221,7 +236,7 @@ fun DenemeLabSettingsDialog(
                     Text("Resmî YÖK Atlas kaynak sitesi ↗", Modifier.fillMaxWidth().padding(13.dp),
                         color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
-                Text("DenemeLab · 0.3.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
+                Text("DenemeLab · 0.11.0 geliştirme sürümü", color = Muted, fontSize = 11.sp)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Kapat", color = Ink) } },
