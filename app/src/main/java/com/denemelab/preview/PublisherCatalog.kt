@@ -127,6 +127,7 @@ object PublisherCatalog {
             if (created != null && existing != null && existing.logoFile != fileName) {
                 logoFile(context, existing)?.delete()
             }
+            BackupSignal.changed(context)
             return entry
         } catch (e: Exception) {
             created?.delete()
