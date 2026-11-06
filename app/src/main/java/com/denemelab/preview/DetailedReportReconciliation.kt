@@ -42,14 +42,23 @@ object DetailedReportReconciliation {
         // check before its topic observations become trusted evidence.
         val page = ReportTableParser.parse(safeOverview)
         val left = ReportTableParser.parse(leftRows.joinToString("\n"))
-        val subjectConflict = page.counts.keys.intersect(left.counts.keys)
-            .filter { page.counts[it] != left.counts[it] }.toSet()
+        val flexible = FlexibleReportTableParser.parse(
+            leftRows + safeOverview.lines()
+        )
+        val subjectConflict = (
+            page.counts.keys.intersect(left.counts.keys)
+                .filter { page.counts[it] != left.counts[it] } +
+            flexible.values.keys.intersect(left.counts.keys)
+                .filter { flexible.values[it] != left.counts[it] }
+        ).toSet()
+        warnings.addAll(flexible.warnings)
         if (subjectConflict.isNotEmpty())
             warnings.add("Ders tablosundaki ${subjectConflict.size} satır farklı okundu; lütfen rakamları kontrol et.")
 
         // Cropped, high resolution table wins if two OCR passes disagree;
         // the ambiguous subject still needs an explicit student review.
-        val mergedCounts = LinkedHashMap(page.counts)
+        val mergedCounts = LinkedHashMap(flexible.values)
+        mergedCounts.putAll(page.counts)
         mergedCounts.putAll(left.counts)
 
         val validatedRight = mutableListOf<String>()
@@ -99,8 +108,25 @@ object DetailedReportReconciliation {
         // The legacy parser validates right-hand topic totals against the
         // left-hand lesson table. Supply those lines in the same pass, or a
         // right-only scan would discard every topic as ungrounded.
+        val aliases = mapOf(
+            "tyt_turkce" to "Türkçe",
+            "tyt_tarih" to "Tarih-1",
+            "tyt_cografya" to "Coğrafya-1",
+            "tyt_felsefe" to "Felsefe",
+            "tyt_din" to "Din Kül. ve Ahl. Bil.",
+            "tyt_mat" to "Matematik-1",
+            "tyt_geo" to "Geometri",
+            "tyt_fizik" to "Fizik",
+            "tyt_kimya" to "Kimya",
+            "tyt_biyoloji" to "Biyoloji"
+        )
+        val syntheticSubjectTotals = ExamStructure.subjectsForEntry("TYT", "")
+            .mapNotNull { lesson ->
+                val scores = mergedCounts[lesson.key] ?: return@mapNotNull null
+                "${aliases[lesson.key] ?: lesson.title} ${lesson.questions} ${scores.first} ${scores.second} 0"
+            }
         val right = ReportTableParser.parse(
-            (leftRows + validatedRight).joinToString("\n")
+            (leftRows + syntheticSubjectTotals + validatedRight).joinToString("\n")
         )
         // Different recognition resolutions can recover different rows. Keep
         // the high resolution row first; deduplicate by lesson+topic, never by
