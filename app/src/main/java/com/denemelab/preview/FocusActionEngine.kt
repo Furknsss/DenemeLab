@@ -70,7 +70,7 @@ object FocusActionEngine {
             title = subject.name,
             lessonName = subject.name,
             topic = null,
-            explanation = "Bu derste kayıp var; hangi konudan kaynaklandığı henüz belirtilmedi.",
+            explanation = "Ders ayrıntısı bulunan son denemede kayıp var; hangi konudan olduğu henüz belirtilmedi.",
             evidence = "${subject.wrong} yanlış · ${subject.blank} boş",
             reason = "Belirtilmedi",
             steps = listOf(
