@@ -28,9 +28,9 @@ fun BackupSettingsDialog(onDismiss: () -> Unit, onRestored: () -> Unit) {
         Surface(
             color = Color.White,
             shape = RoundedCornerShape(28.dp),
-            modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.89f)
+            modifier = Modifier.fillMaxWidth(0.95f).heightIn(max = 680.dp)
         ) {
-            Column(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .padding(start = 20.dp, end = 12.dp, top = 13.dp, bottom = 4.dp),
@@ -43,7 +43,7 @@ fun BackupSettingsDialog(onDismiss: () -> Unit, onRestored: () -> Unit) {
                     }
                 }
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.heightIn(max = 606.dp)
                         .verticalScroll(rememberScrollState())
                         .padding(start = 20.dp, end = 20.dp, bottom = 18.dp)
                 ) {
