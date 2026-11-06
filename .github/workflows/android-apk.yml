@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013]
+    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013, fix/report-import-ocr-v014]
   workflow_dispatch:
 
 permissions:
@@ -89,8 +89,9 @@ jobs:
             echo "::error::Firebase google_app_id is missing from the packaged APK."
             exit 1
           fi
-          if ! grep -q 'string/default_web_client_id' /tmp/denemelab-debug-resources.txt; then
-            echo "::error::Google OAuth web client ID missing. Register the SHA-1 printed above in Firebase, redownload google-services.json and update the FIREBASE_ANDROID_CONFIG_B64 secret."
+          if ! grep -q 'string/default_web_client_id' /tmp/denemelab-debug-resources.txt &&
+             ! grep -q 'string/denemelab_google_web_client_id' /tmp/denemelab-debug-resources.txt; then
+            echo "::error::Google OAuth web client ID missing from the APK."
             exit 1
           fi
           unzip -t app/build/outputs/apk/debug/app-debug.apk | tail -1
