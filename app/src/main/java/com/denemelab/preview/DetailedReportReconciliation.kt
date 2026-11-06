@@ -42,8 +42,11 @@ object DetailedReportReconciliation {
         // check before its topic observations become trusted evidence.
         val page = ReportTableParser.parse(safeOverview)
         val left = ReportTableParser.parse(leftRows.joinToString("\n"))
+        // The 3D overview filter treats its final column as B% (success).
+        // Other publishers print B (blank count) instead. Let the flexible
+        // parser see ORIGINAL rows; it checks total/d/y against question limits.
         val flexible = FlexibleReportTableParser.parse(
-            leftRows + safeOverview.lines()
+            leftRows + raw.lines()
         )
         val subjectConflict = (
             page.counts.keys.intersect(left.counts.keys)
