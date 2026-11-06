@@ -116,6 +116,23 @@ object FirebaseCloudBackup {
             val before = pointer.get(Source.SERVER).awaitTask()
             val previous = before.getString("id").orEmpty()
             val oldest = before.getString("previous").orEmpty()
+            if (previous.isNotBlank()) {
+                val existing = root.collection("backups").document(previous)
+                    .get(Source.SERVER).awaitTask()
+                if (!existing.exists())
+                    throw IOException("Bulut yedeğinin önceki sürümü eksik. Üzerine yazılmadı.")
+                val oldExams = (existing.getLong("exams") ?: 0L).toInt()
+                val oldQuestions = (existing.getLong("questions") ?: 0L).toInt()
+                val oldLogos = (existing.getLong("logos") ?: 0L).toInt()
+                if (summary.examCount < oldExams ||
+                    summary.questionCount < oldQuestions ||
+                    summary.publisherLogoCount < oldLogos) {
+                    throw IOException(
+                        "Buluttaki yedek bu telefondakinden daha fazla kayıt içeriyor. " +
+                        "Önce 'Buluttan yedeği incele ve geri yükle' seçeneğini kullan. " +
+                        "Güvenlik için mevcut yedek değiştirilmedi.")
+                }
+            }
             val id = UUID.randomUUID().toString()
             val backup = root.collection("backups").document(id)
 
