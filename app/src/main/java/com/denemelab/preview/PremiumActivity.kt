@@ -106,6 +106,7 @@ private fun DenemeLabApp() {
     var showProfileDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showDataPackDialog by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
     var showAtlasDialog by remember { mutableStateOf(false) }
     var openSelectedDetail by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
@@ -220,10 +221,25 @@ private fun DenemeLabApp() {
     if (showProfileDialog) StudentProfileDialog(
         initial = studentProfile,
         onDismiss = { showProfileDialog = false },
-        onSave = {
-            studentProfile = it
-            LocalData.saveProfile(context, it)
-            showProfileDialog = false
+        onSave = { selected ->
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val savedPhoto = if (selected.pictureUri.isBlank()) "" else
+                            ProfilePictureStore.persist(context, selected.pictureUri)
+                        val updated = selected.copy(pictureUri = savedPhoto)
+                        LocalData.saveProfile(context, updated)
+                        updated
+                    }
+                }
+                result.onSuccess {
+                    studentProfile = it
+                    showProfileDialog = false
+                }.onFailure {
+                    Toast.makeText(context, it.message ?: "Profil kaydedilemedi.",
+                        Toast.LENGTH_LONG).show()
+                }
+            }
         },
         onPickTarget = {
             showProfileDialog = false
@@ -241,6 +257,10 @@ private fun DenemeLabApp() {
             showSettingsDialog = false
             showDataPackDialog = true
         },
+        onBackup = {
+            showSettingsDialog = false
+            showBackupDialog = true
+        },
         onDismiss = { showSettingsDialog = false }
     )
     if (showDataPackDialog) PublisherDataPackDialog(
@@ -249,6 +269,22 @@ private fun DenemeLabApp() {
         onCatalogChanged = {
             publishers.clear()
             publishers.addAll(PublisherCatalog.list(context))
+        }
+    )
+    if (showBackupDialog) BackupSettingsDialog(
+        onDismiss = { showBackupDialog = false },
+        onRestored = {
+            exams.clear()
+            exams.addAll(LocalData.loadExams(context))
+            questions.clear()
+            questions.addAll(LocalData.loadQuestions(context))
+            publishers.clear()
+            publishers.addAll(PublisherCatalog.list(context))
+            target = LocalData.loadTarget(context)
+            studentProfile = LocalData.loadProfile(context)
+            reduceMotion = LocalData.reduceMotion(context)
+            showBackupDialog = false
+            Toast.makeText(context, "Yedek doğrulandı ve geri yüklendi.", Toast.LENGTH_LONG).show()
         }
     )
     if (showAtlasDialog) AtlasSearchDialog(
