@@ -243,6 +243,7 @@ fun DenemeLabSettingsDialog(
     reduceMotion: Boolean,
     onMotionChanged: (Boolean) -> Unit,
     onDataPack: () -> Unit,
+    onBackup: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -280,8 +281,22 @@ fun DenemeLabSettingsDialog(
                     }
                 }
                 HorizontalDivider(color = Border)
+                Surface(onClick = onBackup, color = Subtle, shape = RoundedCornerShape(15.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Bulut ve yedekleme", color = Ink, fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Google Drive'a yedekle veya verilerini geri yükle",
+                                color = Muted, fontSize = 11.sp)
+                        }
+                        Text("Aç →", color = Ink, fontSize = 12.sp)
+                    }
+                }
+                HorizontalDivider(color = Border)
                 Text("Veri ve gizlilik", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("Profilin ve denemelerin bu sürümde cihazında tutulur. Üniversite aramaları YÖK Atlas sunucusuna iletilir.",
+                Text("Verilerin cihazında tutulur; desteklenen cihazlarda Android otomatik yedeği etkinleştirildi. İstersen ayrıca Drive'a dışa aktarabilirsin.",
                     color = Muted, fontSize = 12.sp)
                 HorizontalDivider(color = Border)
                 Surface(onClick = {
