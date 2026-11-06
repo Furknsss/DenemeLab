@@ -29,19 +29,36 @@ jobs:
           packages: platform-tools
       - name: Install Android platform and build tools
         run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
-      - name: Load optional Firebase Android config
+      - name: Configure Firebase Android app (required for v0.12)
         env:
           FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
         run: |
-          if [ -n "$FIREBASE_ANDROID_CONFIG_B64" ]; then
-            printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+          if [ -z "$FIREBASE_ANDROID_CONFIG_B64" ]; then
+            echo "::error::Add FIREBASE_ANDROID_CONFIG_B64 to repository Actions secrets before producing a Firebase-enabled APK."
+            exit 1
           fi
+          umask 077
+          printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+          python3 - <<'PY'
+          import json
+          path = "app/google-services.json"
+          with open(path, encoding="utf-8") as handle:
+              config = json.load(handle)
+          project_id = config.get("project_info", {}).get("project_id")
+          clients = config.get("client", [])
+          packages = [c.get("client_info", {}).get("android_client_info", {}).get("package_name") for c in clients]
+          if project_id != "denemelab-yks-2026" or "com.denemelab.preview" not in packages:
+              raise SystemExit("Firebase project ID or Android package does not match DenemeLab.")
+          print("Firebase project/package validated without printing configuration values.")
+          PY
       - name: Run deterministic domain unit tests
         run: bash ./gradlew :app:testDebugUnitTest --no-daemon --no-configuration-cache --max-workers=2
       - name: Build independent test APK
         run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
       - name: Validate built APK
         run: |
+          test -s app/build/generated/res/google-services/debug/values/values.xml
+          grep -q 'name="google_app_id"' app/build/generated/res/google-services/debug/values/values.xml
           test -s app/build/outputs/apk/debug/app-debug.apk
           unzip -t app/build/outputs/apk/debug/app-debug.apk | tail -1
           sha256sum app/build/outputs/apk/debug/app-debug.apk
