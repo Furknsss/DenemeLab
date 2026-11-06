@@ -62,9 +62,12 @@ object FocusJournal {
             .getString(STORAGE_KEY, "[]") ?: "[]"
     )
 
-    fun save(context: Context, records: List<FocusCompletion>): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun save(context: Context, records: List<FocusCompletion>): Boolean {
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(STORAGE_KEY, encode(records)).commit()
+        if (saved) BackupSignal.changed(context)
+        return saved
+    }
 
     fun nextExamAfter(
         record: FocusCompletion,
