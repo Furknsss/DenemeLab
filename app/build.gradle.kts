@@ -8,8 +8,6 @@ if (file("google-services.json").isFile) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-}
-
 android {
     namespace = "com.denemelab.preview"
     compileSdk { version = release(36) { minorApiLevel = 1 } }
