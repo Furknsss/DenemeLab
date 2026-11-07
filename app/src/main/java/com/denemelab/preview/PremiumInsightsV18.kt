@@ -172,7 +172,7 @@ object PremiumInsightsV18 {
         val observed = recent.mapNotNull { exam -> modeIndex(exam.mood)?.let { exam to it } }
         if (observed.isEmpty()) return null
         val score = observed.map { it.second }.average()
-        return ExamMoodV18(modes[score.toInt().coerceIn(0,4)],
+        return ExamMoodV18(modes[(score + 0.5).toInt().coerceIn(0,4)],
             score, observed.size, observed.last().first)
     }
 }
