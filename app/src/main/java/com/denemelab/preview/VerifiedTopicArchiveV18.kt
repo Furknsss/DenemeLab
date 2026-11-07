@@ -21,7 +21,7 @@ object VerifiedTopicArchiveV18 {
         }.getOrNull() ?: return emptyMap()
         // Fail closed when provenance metadata is absent.
         if (root.optString("source") != "DenemeLab verified question classification" ||
-            root.optJSONArray("references") == null) return emptyMap()
+            root.optJSONArray("references")?.length() ?: 0 < 1) return emptyMap()
         val node = root.optJSONObject("lessons")?.optJSONObject(lessonKey) ?: return emptyMap()
         return node.keys().asSequence().mapNotNull { topic ->
             val years = node.optJSONObject(topic) ?: return@mapNotNull null
