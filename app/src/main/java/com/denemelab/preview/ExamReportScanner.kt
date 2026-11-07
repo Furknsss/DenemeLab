@@ -29,7 +29,8 @@ data class ReportResult(
     val outcomes: List<TopicOutcome> = emptyList(),
     val detectedTopicRows: Int = 0,
     val validatedTopicQuestions: Int = 0,
-    val ambiguousLessons: Set<String> = emptySet()
+    val ambiguousLessons: Set<String> = emptySet(),
+    val derivedLessons: Set<String> = emptySet()
 ) {
     val foundCount: Int get() = counts.size
 }
