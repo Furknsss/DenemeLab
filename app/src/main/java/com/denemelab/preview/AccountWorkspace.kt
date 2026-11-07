@@ -39,6 +39,16 @@ object AccountWorkspace {
     fun owner(context: Context): String? =
         guard(context).getString("ownerUid", null)?.takeIf { it.isNotBlank() }
 
+    private fun pendingReview(context: Context, uid: String): Boolean =
+        guard(context).getString("reviewUid", "") == uid
+
+    private fun markReview(context: Context, uid: String, needsReview: Boolean) {
+        val saved = guard(context).edit()
+            .putString("reviewUid", if (needsReview) uid else "")
+            .commit()
+        if (!saved) throw IOException("Bulut çakışması güvenlik durumu kaydedilemedi.")
+    }
+
     fun hasLocalData(context: Context): Boolean =
         context.getSharedPreferences(DATA, Context.MODE_PRIVATE).all.isNotEmpty()
 
@@ -118,6 +128,11 @@ object AccountWorkspace {
         val previousOwner = owner(context)
 
         if (previousOwner == uid) {
+            if (pendingReview(context, uid) && !FirebaseCloudBackup.autoEnabled(context)) {
+                return@withContext WorkspaceResult(true,
+                    message = "Yerel ve bulut verileri ayrı korunuyor. Bulut yedeğini incele.")
+            }
+            if (pendingReview(context, uid)) markReview(context, uid, false)
             if (!hasLocalData(context)) {
                 val cloud = FirebaseCloudBackup.current(context)
                 if (cloud != null) {
@@ -157,6 +172,7 @@ object AccountWorkspace {
             checkSignedIn(uid)
             assign(context, uid)
             FirebaseCloudBackup.setAuto(context, false)
+            markReview(context, uid, true)
             fillMissingName(context)
             return@withContext WorkspaceResult(true,
                 message = "Cihaz kayıtların korundu. Bulut yedeği değiştirilmedi.")
@@ -186,6 +202,7 @@ object AccountWorkspace {
         // intact until the student checks them in cloud settings.
         val needsReconcile = cached?.isFile == true && cloud != null
         FirebaseCloudBackup.setAuto(context, !needsReconcile)
+        markReview(context, uid, needsReconcile)
         fillMissingName(context)
         WorkspaceResult(true, message = if (needsReconcile)
             "Bu cihazdaki hesap verilerin açıldı. Bulut sürümünü ayarlardan incele."
