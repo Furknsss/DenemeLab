@@ -28,22 +28,17 @@ object ReportEvidenceMerger {
             .filterKeys { it !in discordant }
             .values.map { it.first() }
         val accepted = mutableListOf<TopicOutcome>()
+        var alternatives = 0
         for ((key, courses) in candidates.groupBy { it.lessonKey }) {
             val pair = counts[key] ?: continue
             val template = subjects[key] ?: continue
             val blank = template.questions - pair.first - pair.second
             if (blank < 0) continue
-            var c = 0
-            var w = 0
-            var b = 0
-            for (row in courses) {
-                if (row.questions <= 0 || c + row.correct > pair.first ||
-                    w + row.wrong > pair.second || b + row.blank > blank) continue
-                accepted.add(row)
-                c += row.correct
-                w += row.wrong
-                b += row.blank
-            }
+            val chosen = ReportRowAllocator.allocate(
+                courses, pair.first, pair.second, blank
+            )
+            accepted.addAll(chosen.accepted)
+            alternatives += chosen.unresolvedAlternatives
         }
         val topics = accepted.flatMap { row ->
             listOfNotNull(
@@ -75,6 +70,8 @@ object ReportEvidenceMerger {
             warnings.add("${conflicted.size} derste PDF metni ile görsel okuma çelişiyor; dersleri doğrula.")
         if (discordant.isNotEmpty())
             warnings.add("${discordant.size} konuda iki okuma uyuşmadı; konular otomatik kabul edilmedi.")
+        if (alternatives > 0) warnings.add(
+            "$alternatives kazanımda eşit derecede olası alternatifler var; otomatik kabul edilmedi.")
         return ReportResult(
             counts = counts,
             topics = topics,

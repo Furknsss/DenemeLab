@@ -107,6 +107,7 @@ fun ExamEntryV3(
     var reviewedReport by remember { mutableStateOf(false) }
     var saveSubjectScoresOnly by remember { mutableStateOf(false) }
     var showMissingByCourse by remember { mutableStateOf(false) }
+    var showOcrWarnings by remember { mutableStateOf(false) }
     val verifiedKeys = remember { mutableStateMapOf<String, Boolean>() }
     val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
     val successItems = remember { mutableStateListOf<TopicOutcome>() }
@@ -123,6 +124,7 @@ fun ExamEntryV3(
             }
             reportResult = null
             reportError = null
+            showOcrWarnings = false
             reviewedReport = false
             saveSubjectScoresOnly = false
             verifiedKeys.clear()
@@ -191,6 +193,17 @@ fun ExamEntryV3(
             successItems.clear()
             successItems.addAll(parsed.outcomes)
             if (examName.isBlank() && parsed.title.isNotBlank()) examName = parsed.title
+            if (publisherName.isBlank()) {
+                val heading = PublisherCatalog.normalize(parsed.rawText.take(2500))
+                val detectedPublisher = when {
+                    "bilgi sarmal" in heading -> "Bilgi Sarmal Yayınları"
+                    "ozdebir" in heading -> "Özdebir Yayınları"
+                    Regex("""(?:^|\s)3d(?:\s|$)""").containsMatchIn(heading) -> "3D Yayınları"
+                    "uc dort bes" in heading || "345 yayin" in heading -> "ÜçDörtBeş Yayınları"
+                    else -> null
+                }
+                if (detectedPublisher != null) publisherName = detectedPublisher
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
@@ -449,8 +462,43 @@ fun ExamEntryV3(
                                     ". Belgeye bakmadan otomatik doğru sayılmaz.",
                                     color = Color(0xFFB42318), fontSize = 11.sp)
                             }
-                            report.warnings.forEach {
-                                Text(it, color = Muted, fontSize = 11.sp)
+                            val needsVerification = templates.filter { verifiedKeys[it.key] != true }
+                            if (needsVerification.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("Belgeden doğrulanması gereken dersler",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Black, fontSize = 12.sp)
+                                needsVerification.forEach { lesson ->
+                                    val pair = numbers[lesson.key]
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(lesson.title, color = Black, fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium)
+                                            Text(if (pair == null) "Ders sonucu okunamadı"
+                                                else "${pair.first} doğru · ${pair.second} yanlış · " +
+                                                    "${lesson.questions - pair.first - pair.second} boş",
+                                                color = Muted, fontSize = 11.sp)
+                                        }
+                                        if (pair != null) {
+                                            TextButton(onClick = {
+                                                verifiedKeys[lesson.key] = true
+                                            }) {
+                                                Text("Doğruladım", color = Black, fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (report.warnings.isNotEmpty()) {
+                                TextButton(onClick = { showOcrWarnings = !showOcrWarnings }) {
+                                    Text(if (showOcrWarnings) "Okuma ayrıntılarını gizle" else
+                                        "${report.warnings.size} okuma notunu göster",
+                                        color = Black, fontSize = 11.sp)
+                                }
+                                if (showOcrWarnings) report.warnings.forEach { warning ->
+                                    Text(warning, color = Muted, fontSize = 11.sp)
+                                }
                             }
                             Spacer(Modifier.height(7.dp))
                             Text(
@@ -492,7 +540,7 @@ fun ExamEntryV3(
                                 )
                             }
                             Spacer(Modifier.height(6.dp))
-                            Text("Konu sonuçları ancak bütün derslerin D/Y/Boş toplamıyla eşleşirse analizlere eklenir.",
+                            Text("Doğrulanan konular kaydedilir; eksik sorular analizde ölçülmemiş olarak kalır.",
                                 color = Muted, fontSize = 11.sp)
                             if (!coverage.complete) {
                                 Spacer(Modifier.height(8.dp))
@@ -666,11 +714,15 @@ fun ExamEntryV3(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(if (saveEnabled) LocalData.net(ExamRules.net(correct, wrong)) + " net" else
-                                if (selectedMethod == "Manuel Ekle") "Net hesaplanıyor" else "Fotoğraf analizi hazırlanıyor",
+                                if (selectedMethod == "Manuel Ekle") "Net hesaplanıyor" else
+                                    if (readingReport || preparingReport) "Belge okunuyor…" else
+                                    if (reportResult != null) "Dersleri ve kayıt bilgilerini doğrula" else
+                                        "Belge ekle",
                                 color = Black, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                             Text(if (saveEnabled) "$correct doğru · $wrong yanlış · $blanks boş" else
                                 if (selectedMethod == "Manuel Ekle") "Gerekli alanları doldur" else
-                                    "Belgeyi okuyup ders ve konu sonuçlarını doğrula",
+                                    if (reportResult != null) "Eksik konular ders netlerini kaydetmeyi engellemez" else
+                                        "Belgeyi seç ve sonuçları incele",
                                 color = Muted, fontSize = 11.sp)
                         }
                     }
