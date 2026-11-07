@@ -650,8 +650,9 @@ fun ExamEntryV3(
                     Spacer(Modifier.height(11.dp))
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        listOf("Sakin", "Normal", "Stresli", "Çok stresli").forEach { label ->
-                            EntryChip(label, selected = mood == label) { mood = label }
+                        listOf("Sakin" to "😌", "Normal" to "🙂", "Heyecanlı" to "😬",
+                            "Telaşlı" to "😵", "Stresli" to "😣").forEach { (label, emoji) ->
+                            EntryChip(emoji + " " + label, selected = mood == label) { mood = label }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
