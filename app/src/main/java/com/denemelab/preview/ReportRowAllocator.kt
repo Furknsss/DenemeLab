@@ -52,27 +52,21 @@ object ReportRowAllocator {
                 val path = state.path + index
                 val guaranteed = state.guaranteed + index
                 val old = next[target]
-                next[target] = when {
-                    old == null -> State(path, guaranteed)
-                    path.size > old.count -> State(path, guaranteed)
-                    path.size == old.count -> State(
-                        old.path, old.guaranteed.intersect(guaranteed))
-                    else -> old
-                }
+                next[target] = if (old == null) State(path, guaranteed)
+                    else State(old.path, old.guaranteed.intersect(guaranteed))
             }
             states = next
         }
         if (states.isEmpty()) return Allocation(emptyList(), rows.size, 0)
         val maximumQuestions = states.keys.maxOf { it.questions }
         val finalists = states.filterKeys { it.questions == maximumQuestions }
-        val maximumRows = finalists.values.maxOf { it.count }
-        val best = finalists.values.filter { it.count == maximumRows }
+        val best = finalists.values.toList()
         val common = best.map { it.guaranteed }.reduce { a, b -> a.intersect(b) }
         val accepted = candidates.filterIndexed { index, _ -> index in common }
         return Allocation(
             accepted = accepted,
             rejected = rows.size - accepted.size,
-            unresolvedAlternatives = maximumRows - common.size
+            unresolvedAlternatives = (best.maxOf { it.count } - common.size).coerceAtLeast(0)
         )
     }
 }
