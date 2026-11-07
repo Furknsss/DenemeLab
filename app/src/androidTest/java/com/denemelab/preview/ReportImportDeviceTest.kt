@@ -34,6 +34,31 @@ class ReportImportDeviceTest {
         } finally { bitmap.recycle(); original.delete() }
     }
 
+    @Test fun searchablePdfTextIsExtractedWithoutRasterOcr() {
+        // A synthetic PDF with an actual font/text layer, not an image.
+        val file = File.createTempFile("selectable-karne-", ".pdf", context.cacheDir)
+        val document = com.tom_roush.pdfbox.pdmodel.PDDocument()
+        try {
+            com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+            val page = com.tom_roush.pdfbox.pdmodel.PDPage()
+            document.addPage(page)
+            com.tom_roush.pdfbox.pdmodel.PDPageContentStream(document, page).use { stream ->
+                stream.beginText()
+                stream.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 12f)
+                stream.newLineAtOffset(60f, 700f)
+                stream.showText("Turkce 40 32 6 2 30,50")
+                stream.endText()
+            }
+            document.save(file)
+        } finally { document.close() }
+        try {
+            val text = ReportPdfTextLayer.extract(context, file)
+            assertEquals(1, text.pageCount)
+            assertEquals(1, text.pagesWithText)
+            assertTrue(text.text.contains("Turkce 40 32 6 2 30,50"))
+        } finally { file.delete() }
+    }
+
     @Test fun resultOnSecondPdfPageIsRecognized(): Unit = runBlocking {
         val file = File.createTempFile("two-page-karne-", ".pdf", context.cacheDir)
         val pdf = PdfDocument()
