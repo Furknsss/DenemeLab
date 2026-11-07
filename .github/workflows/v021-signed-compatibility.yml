@@ -20,8 +20,14 @@ jobs:
       - name: Checkout OCR-fixed v0.21 source, without modifying existing v0.19 source
         uses: actions/checkout@v4
         with:
-          ref: fix/report-ocr-coverage-root-v021
+          ref: 8fc8a3948516d28e4479c4ca93faa10e3a7d8bf1
           persist-credentials: false
+      - name: Assert exact repaired source version
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "8fc8a3948516d28e4479c4ca93faa10e3a7d8bf1"
+          grep -q 'versionCode = 21' app/build.gradle.kts
+          grep -q 'versionName = "0.21.0"' app/build.gradle.kts
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
