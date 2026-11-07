@@ -29,7 +29,37 @@ object ReportEvidenceMerger {
             .values.map { it.first() }
         val accepted = mutableListOf<TopicOutcome>()
         var alternatives = 0
+        // If ONE source independently accounts for every D/Y/B question
+        // in a lesson, a partial contradictory OCR pass must not veto it.
+        // Do not use this override on partial courses: existing conflicts
+        // remain unresolved unless exact complete evidence exists.
+        val preferredCompleteCourses = mutableSetOf<String>()
+        subjects.forEach { (key, lesson) ->
+            val scores = counts[key] ?: return@forEach
+            if (key in conflicted) return@forEach
+            val part = SubjectScore(key, lesson.title, lesson.questions,
+                scores.first, scores.second)
+            val rasterRows = raster.outcomes.filter { it.lessonKey == key }
+            val nativeRows = native.outcomes.filter { it.lessonKey == key }
+            val rasterFull = ReportCoverage.inspect(listOf(part), rasterRows).complete
+            val nativeFull = ReportCoverage.inspect(listOf(part), nativeRows).complete
+            val preferred = when {
+                nativeFull && !rasterFull -> nativeRows
+                rasterFull && !nativeFull -> rasterRows
+                nativeFull && rasterFull &&
+                    rasterRows.map { TopicAnalyticsV3.identity(key,it.topic) to
+                        Triple(it.correct,it.wrong,it.blank) }.toSet() ==
+                    nativeRows.map { TopicAnalyticsV3.identity(key,it.topic) to
+                        Triple(it.correct,it.wrong,it.blank) }.toSet() -> nativeRows
+                else -> null
+            }
+            if (preferred != null) {
+                accepted.addAll(preferred)
+                preferredCompleteCourses.add(key)
+            }
+        }
         for ((key, courses) in candidates.groupBy { it.lessonKey }) {
+            if (key in preferredCompleteCourses) continue
             val pair = counts[key] ?: continue
             val template = subjects[key] ?: continue
             val blank = template.questions - pair.first - pair.second

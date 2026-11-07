@@ -77,18 +77,69 @@ object HighResolutionReportOcr {
                         ReportPdfTextLayer.extract(context, staged)
                     }.getOrNull()
                     if (native != null && native.pagesWithText > 0) {
-                        nativeResult = DetailedReportReconciliation.reconcile(
+                        // When the PDF contains selectable text, group
+                        // glyphs by their original left/right column and
+                        // baseline. A single full-page PDFTextStripper output
+                        // can interleave the two independent tables.
+                        val byPosition = DetailedReportReconciliation.reconcile(
+                            native.text,
+                            native.leftRows.ifEmpty { native.text.lines() },
+                            native.rightRows.ifEmpty { native.text.lines() }
+                        )
+                        val byText = DetailedReportReconciliation.reconcile(
                             native.text, native.text.lines(), native.text.lines()
                         )
+                        // For native PDF text, the right-hand column is
+                        // authoritative printed rows, not fuzzy OCR evidence.
+                        // The old merged parse rejected whole lessons even
+                        // though PDFBox extracted every original row.
+                        val verifiedCourseScores = LinkedHashMap(byText.counts)
+                        verifiedCourseScores.putAll(byPosition.counts)
+                        val directRows = NativePdfTopicRowsV22.parse(
+                            native.rightRows, verifiedCourseScores
+                        )
+                        val directTopics = directRows.outcomes.flatMap { row ->
+                            listOfNotNull(
+                                row.wrong.takeIf { it > 0 }?.let {
+                                    ExamTopicIssue(row.lessonKey,row.lessonName,
+                                        row.topic,"Yanlış",it,"Belirtilmedi","PDF metin")
+                                },
+                                row.blank.takeIf { it > 0 }?.let {
+                                    ExamTopicIssue(row.lessonKey,row.lessonName,
+                                        row.topic,"Boş",it,"Belirtilmedi","PDF metin")
+                                }
+                            )
+                        }
+                        val directReport = ReportResult(
+                            counts=verifiedCourseScores,
+                            topics=directTopics,
+                            title=byPosition.title.ifBlank { byText.title },
+                            warnings=if (directRows.unresolvedRows > 0) listOf(
+                                "${directRows.unresolvedRows} PDF kazanım satırı "+
+                                    "ders toplamıyla doğrulanamadı."
+                            ) else emptyList(),
+                            rawText=native.text,
+                            outcomes=directRows.outcomes,
+                            detectedTopicRows=directRows.recognizedRows,
+                            validatedTopicQuestions=directRows.outcomes.sumOf { it.questions },
+                            ambiguousLessons=byPosition.ambiguousLessons.intersect(
+                                verifiedCourseScores.keys),
+                            derivedLessons=byPosition.derivedLessons
+                        )
+                        val selectedNative = listOf(byPosition,byText,directReport).maxWith(
+                            compareBy<ReportResult> { it.foundCount }
+                                .thenBy { it.validatedTopicQuestions }
+                        )
                         val nativeParts = ExamStructure.tytDetailed.map { lesson ->
-                            val pair = nativeResult.counts[lesson.key] ?: (0 to 0)
+                            val pair = selectedNative.counts[lesson.key] ?: (0 to 0)
                             SubjectScore(lesson.key, lesson.title,
                                 lesson.questions, pair.first, pair.second)
                         }
-                        if (nativeResult.foundCount == 10 &&
-                            ReportCoverage.inspect(nativeParts, nativeResult.outcomes).complete) {
-                            return@withContext nativeResult.copy(warnings =
-                                (nativeResult.warnings +
+                        nativeResult = selectedNative
+                        if (selectedNative.foundCount == 10 &&
+                            ReportCoverage.inspect(nativeParts, selectedNative.outcomes).complete) {
+                            return@withContext selectedNative.copy(warnings =
+                                (selectedNative.warnings +
                                     "PDF'nin seçilebilir metni doğrudan okundu. Kaydetmeden önce kontrol et.")
                                     .distinct())
                         }
@@ -197,6 +248,18 @@ object HighResolutionReportOcr {
         } finally {
             if (preview !== bitmap) preview.recycle()
         }
+        // PDF cover pages sometimes have only "Deneme sonuç karnesi".
+        // Skipping detailed OCR here avoids processing 20+ useless tiles
+        // before reaching page 2 (previously timed out after 120 s).
+        val normalizedPreview = TopicAnalyticsV3.normalize(overview)
+        val hasCourseMarker = Regex(
+            """(?:tyt|turkce|matematik|geometri|tarih|cografya|felsefe|fizik|kimya|biyoloji|din kult|kazan)"""
+        ).containsMatchIn(normalizedPreview)
+        if (!hasCourseMarker && normalizedPreview.contains("deneme") &&
+            normalizedPreview.length < 220) {
+            return Fragments(overview,emptyList(),emptyList(),
+                listOf("Kapak/özet sayfası: ders ve kazanım tablosu bulunamadı."))
+        }
         val width = bitmap.width
         val height = bitmap.height
         fun region(name: String, x1: Float, y1: Float, x2: Float, y2: Float) =
@@ -256,6 +319,19 @@ object HighResolutionReportOcr {
             overview, deduplicate(left).map { it.text },
             deduplicate(right).map { it.text }
         )
+        // A score-only page has no curriculum column; preserve its scores
+        // and avoid scanning 20 extra crops. Reports with even a partially
+        // recognized right-hand topic table still use the detailed rescans.
+        if (initial.foundCount > 0 && right.none { line ->
+                val text = line.text.trim()
+                text.isNotBlank() && (
+                    Regex("""\d+\s+\d+\s+\d+""").containsMatchIn(text) ||
+                    TopicAnalyticsV3.normalize(text).contains("kazan") ||
+                    TopicAnalyticsV3.normalize(text).contains("konu"))
+            }) {
+            return Fragments(overview,deduplicate(left).map { it.text },
+                emptyList(),warnings.distinct())
+        }
         // Publisher layouts vary: a 3D-style half-page split cannot read
         // a full-width table or a course list near the foot of the page.
         val initialParts = ExamStructure.tytDetailed.map { lesson ->
@@ -292,6 +368,26 @@ object HighResolutionReportOcr {
                 region("curriculum-4-original",.47f,.58f,1f,.80f),
                 region("curriculum-5-original",.47f,.78f,1f,1f)
             ), originalPixels = true)
+        }
+        // Extra resolution only when completeness is still missing.
+        // On a tall 1200x10000 screenshot the original 20%-height tile
+        // scales at ~1.2x, whereas 8%-height overlapping micro-strips
+        // can scale above 2x. This prevents losing small S/D/Y/B% digits.
+        val afterCoarse = DetailedReportReconciliation.reconcile(
+            overview, deduplicate(left).map { it.text },
+            deduplicate(right).map { it.text })
+        val afterParts = ExamStructure.tytDetailed.map { lesson ->
+            val pair = afterCoarse.counts[lesson.key] ?: (0 to 0)
+            SubjectScore(lesson.key, lesson.title, lesson.questions,
+                pair.first, pair.second)
+        }
+        if (!ReportCoverage.inspect(afterParts, afterCoarse.outcomes).complete) {
+            val micro = (0 until 12).map { index ->
+                val start = (index / 12f - .012f).coerceAtLeast(0f)
+                val end = ((index+1) / 12f + .012f).coerceAtMost(1f)
+                region("curriculum-micro-$index", .455f, start, 1f, end)
+            }
+            scan(micro, originalPixels = true)
         }
         return Fragments(
             overview,
@@ -464,6 +560,19 @@ object HighResolutionReportOcr {
                 ))
             }
         }
+        // ML Kit often already knows row boundaries. Preserve those
+        // original lines as a second candidate; our spatial word regrouping
+        // is useful when the numeric columns are detected separately, but
+        // can accidentally join two physically adjacent tiny rows.
+        text.textBlocks.flatMap { it.lines }.forEach { line ->
+            val bounds = line.boundingBox ?: return@forEach
+            val leftEdge = box.left + bounds.left / scale
+            val rightEdge = box.left + bounds.right / scale
+            val pageMidpoint = pageWidth * 0.49f
+            if (leftEdge < pageMidpoint && rightEdge > pageMidpoint) return@forEach
+            if (line.text.isNotBlank()) results.add(Line(
+                line.text.trim(), box.top + bounds.exactCenterY()/scale, leftEdge))
+        }
         return results.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })
     }
 
@@ -484,8 +593,11 @@ object HighResolutionReportOcr {
             }
             if (matchAt < 0) result.add(candidate) else {
                 val old = result[matchAt]
-                // More recognized columns generally yield more characters.
-                if (candidate.text.length > old.text.length) result[matchAt] = candidate
+                // Numerically complete S/D/Y/B% is more reliable than
+                // a longer string containing stray OCR noise.
+                val oldScore = ReportOcrTextQualityV22.score(old.text)
+                val newScore = ReportOcrTextQualityV22.score(candidate.text)
+                if (newScore > oldScore) result[matchAt] = candidate
             }
         }
         return result.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })

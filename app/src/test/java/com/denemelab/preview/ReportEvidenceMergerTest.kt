@@ -36,4 +36,22 @@ class ReportEvidenceMergerTest {
         assertTrue(merged.outcomes.isEmpty())
         assertTrue(merged.warnings.any { it.contains("çeliş") || it.contains("uyuşmadı") })
     }
+    @Test fun fullVerifiedPdfCourseSurvivesPartialConflictingImageRead() {
+        val counts=mapOf("tyt_tarih" to (4 to 1))
+        val pdf=(1..5).map { i ->
+            TopicOutcome("tyt_tarih","Tarih","Kazanım $i",
+                if (i==5) 0 else 1, if (i==5) 1 else 0, 0)
+        }
+        val raster=listOf(
+            TopicOutcome("tyt_tarih","Tarih","Kazanım 1",0,1,0),
+            TopicOutcome("tyt_tarih","Tarih","Kazanım 2",1,0,0)
+        )
+        val merged=ReportEvidenceMerger.merge(result(counts,raster),result(counts,pdf))
+        val total=ReportCoverage.inspect(listOf(
+            SubjectScore("tyt_tarih","Tarih",5,4,1)),merged.outcomes)
+        assertTrue(total.complete)
+        assertEquals(5,total.observed)
+        assertEquals(5,merged.outcomes.size)
+    }
+
 }

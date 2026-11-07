@@ -90,4 +90,104 @@ class ReportImportDeviceTest {
             assertEquals(32 to 6, result.counts["tyt_turkce"])
         } finally { pdf.close(); file.delete() }
     }
+
+    @Test fun completeTwoColumn120QuestionPdfIsReadAs120TopicQuestions(): Unit = runBlocking {
+        // GENERATED test PDF, not a user's report.
+        // Checks complete PDF text-layer extraction and table reconciliation.
+        val file = File.createTempFile("synthetic-full-120-", ".pdf", context.cacheDir)
+        val pdf = com.tom_roush.pdfbox.pdmodel.PDDocument()
+        try {
+            com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+            val page = com.tom_roush.pdfbox.pdmodel.PDPage()
+            pdf.addPage(page)
+            val scores = listOf(
+                Triple("Turkce",30,7),
+                Triple("Tarih-1",4,1),
+                Triple("Cografya-1",4,1),
+                Triple("Felsefe",4,1),
+                Triple("Din Kulturu",4,0),
+                Triple("Matematik-1",22,5),
+                Triple("Geometri",6,2),
+                Triple("Fizik",5,1),
+                Triple("Kimya",5,1),
+                Triple("Biyoloji",4,1)
+            )
+            val counts = listOf(40,5,5,5,5,30,10,7,7,6)
+            com.tom_roush.pdfbox.pdmodel.PDPageContentStream(pdf,page).use { writer ->
+                fun line(text:String, x:Float,y:Float,size:Float) {
+                    writer.beginText()
+                    writer.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA,size)
+                    writer.newLineAtOffset(x,y)
+                    writer.showText(text)
+                    writer.endText()
+                }
+                line("BILGI SARMAL TYT TG 1",40f,800f,13f)
+                scores.forEachIndexed { i,(name,c,w) ->
+                    line(name+" "+counts[i]+" "+c+" "+w,40f,765f-i*17f,9f)
+                }
+                line("Toplam: 120 88 20 83,00",40f,520f,10f)
+                var y = 785f
+                scores.forEachIndexed { i,(name,c,w) ->
+                    line(name+" S D Y B%",320f,y,6f)
+                    y-=5.45f
+                    repeat(counts[i]) { j ->
+                        val right = if (j < c) 1 else 0
+                        val wrong = if (j >= c && j < c+w) 1 else 0
+                        val pct = if (right == 1) 100 else 0
+                        line("Konu_"+(i+1)+"_"+(j+1)+" 1 "+right+" "+wrong+" "+pct,
+                            320f,y,6f)
+                        y-=5.45f
+                    }
+                }
+            }
+            pdf.save(file)
+            val extracted = ReportPdfTextLayer.extract(context,file)
+            assertEquals(1,extracted.pagesWithText)
+            assertTrue("Positioned right column must contain real rows",
+                extracted.rightRows.size >= 120)
+            val positioned=DetailedReportReconciliation.reconcile(
+                extracted.text,extracted.leftRows,extracted.rightRows)
+            val byText=DetailedReportReconciliation.reconcile(
+                extracted.text,extracted.text.lines(),extracted.text.lines())
+            val scoreParts=ExamStructure.tytDetailed.map { lesson ->
+                val values=positioned.counts[lesson.key] ?: (0 to 0)
+                SubjectScore(lesson.key,lesson.title,lesson.questions,
+                    values.first,values.second)
+            }
+            val nativeCoverage=ReportCoverage.inspect(scoreParts,positioned.outcomes)
+            val summary=ExamStructure.tytDetailed.joinToString(" | ") { lesson ->
+                val rows=positioned.outcomes.filter { it.lessonKey==lesson.key }
+                lesson.title+":"+rows.sumOf { it.questions }+"/"+lesson.questions
+            }
+            println("DENEMELAB_SYNTHETIC_PDF_SOURCE:"+
+                " nativeRightRows="+extracted.rightRows.size+
+                " positioned="+positioned.validatedTopicQuestions+
+                " plainText="+byText.validatedTopicQuestions+
+                " detail="+summary)
+            println("DENEMELAB_SYNTHETIC_PDF_HEADINGS:"+
+                extracted.rightRows.filter {
+                    it.contains(" S D Y",true) || it.contains("Konu_6_",true)
+                }.take(15).joinToString(" | ").take(2000))
+            println("DENEMELAB_SYNTHETIC_PDF_AUDIT:"+
+                " native="+nativeCoverage.observed+" valid="+nativeCoverage.valid)
+            val result=withTimeout(180_000L) {
+                HighResolutionReportOcr.recognize(context,Uri.fromFile(file))
+            }
+            val parts=ExamStructure.tytDetailed.map { lesson ->
+                val pair=result.counts[lesson.key]
+                    ?: throw AssertionError("Missing subject: "+lesson.key)
+                SubjectScore(lesson.key,lesson.title,lesson.questions,pair.first,pair.second)
+            }
+            val audit=ReportCoverage.inspect(parts,result.outcomes)
+            assertEquals("Ten scored subtests",10,result.foundCount)
+            assertEquals("Every printed question's topic and D/Y/B; "+
+                "native="+nativeCoverage.observed+"; "+summary,
+                120,audit.observed)
+            assertTrue("Verified all 120, no omissions",audit.complete)
+        } finally {
+            pdf.close()
+            file.delete()
+        }
+    }
+
 }

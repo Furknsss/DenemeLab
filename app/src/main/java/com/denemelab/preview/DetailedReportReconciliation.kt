@@ -170,20 +170,22 @@ object DetailedReportReconciliation {
         val flexibleTopics = FlexibleTopicRowParser.parse(validatedRight, mergedCounts)
         if (flexibleTopics.uncertain > 0)
             warnings.add("Bazı konu satırlarında doğru/yanlış/boş uyuşmadı; doğrulanmadı.")
-        // Multiple OCR passes can disagree on the same printed topic.
-        // Reject contradictory readings instead of silently picking the
-        // first variant and contaminating long-term topic analytics.
-        val topicObservations = right.outcomes + page.outcomes + flexibleTopics.rows
-        val byTopic = topicObservations.groupBy {
-            TopicAnalyticsV3.identity(it.lessonKey, it.topic)
-        }
-        val conflictingTopics = byTopic.filter { (_, rows) ->
-            rows.map { Triple(it.correct, it.wrong, it.blank) }.distinct().size > 1
-        }.keys
-        if (conflictingTopics.isNotEmpty())
-            warnings.add("${conflictingTopics.size} konuda iki OCR okuması çelişti; bu satırlar doğrulanmadı.")
-        val candidates = byTopic.filterKeys { it !in conflictingTopics }
-            .values.map { it.first() }
+        // A coarse overview can misread one pixel and contradict a correctly
+        // decoded high-resolution strip. High-res evidence is authoritative
+        // when both right-table parsers agree; contradictions inside high-res
+        // evidence remain unverified. Coarse results only fill missing rows.
+        val topicReadings = ReportTopicEvidenceV22.select(
+            highResolution = right.outcomes,
+            rightFallback = flexibleTopics.rows,
+            overview = page.outcomes
+        )
+        if (topicReadings.unresolvedTopics > 0)
+            warnings.add("${topicReadings.unresolvedTopics} konu satırında OCR okumaları " +
+                "çelişiyor; kesin bilgi olarak kaydedilmedi.")
+        if (topicReadings.coarseDisagreements > 0)
+            warnings.add("${topicReadings.coarseDisagreements} konuda küçük önizleme " +
+                "büyük çözünürlüklü okumayla çelişti; daha net tablo kullanıldı.")
+        val candidates = topicReadings.outcomes
 
         val accepted = mutableListOf<TopicOutcome>()
         var discarded = 0
@@ -236,7 +238,7 @@ object DetailedReportReconciliation {
             outcomes = accepted,
             // Do not label repeated numerical OCR fragments as "unknown
             // topic rows". Only distinct identified curriculum entries count.
-            detectedTopicRows = candidates.size + conflictingTopics.size,
+            detectedTopicRows = candidates.size + topicReadings.unresolvedTopics,
             validatedTopicQuestions = tagged,
             ambiguousLessons = subjectConflict + totalCheck.derivedKeys,
             derivedLessons = totalCheck.derivedKeys
