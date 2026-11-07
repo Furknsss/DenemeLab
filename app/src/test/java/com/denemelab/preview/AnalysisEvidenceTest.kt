@@ -18,9 +18,9 @@ class AnalysisEvidenceTest {
     ) = ExamRecord(id, "Deneme $id", "Genel", "TYT", "", 33, 8, 79, id,
         parts = parts, topicOutcomes = outcomes, topicIssues = issues)
 
-    @Test fun unmeasuredThirtyFiveQuestionsAreNotClaimedCorrect() {
+    @Test fun unmeasuredQuestionsAreNotClaimedCorrect() {
         val outcomes = listOf(
-            TopicOutcome("tyt_turkce", "Türkçe", "Paragraf", 20, 5, 5)
+            TopicOutcome("tyt_turkce", "Türkçe", "Paragraf", 23, 5, 2)
         )
         val result = AnalysisEvidence.perLesson(exam(outcomes = outcomes))
         val turkish = result.first { it.key == "tyt_turkce" }
