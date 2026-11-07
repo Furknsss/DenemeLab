@@ -187,30 +187,26 @@ object DetailedReportReconciliation {
 
         val accepted = mutableListOf<TopicOutcome>()
         var discarded = 0
+        var alternativeChoices = 0
         for ((key, rows) in candidates.groupBy { it.lessonKey }) {
             val totals = mergedCounts[key]
-            val lesson = ExamStructure.subjectsForEntry("TYT", "").firstOrNull { it.key == key }
+            val lesson = ExamStructure.subjectsForEntry("TYT", "")
+                .firstOrNull { it.key == key }
             if (totals == null || lesson == null) {
                 discarded += rows.size
                 continue
             }
-            var usedCorrect = 0
-            var usedWrong = 0
-            var usedBlank = 0
-            for (outcome in rows) {
-                if (outcome.questions <= 0 ||
-                    usedCorrect + outcome.correct > totals.first ||
-                    usedWrong + outcome.wrong > totals.second ||
-                    usedBlank + outcome.blank > lesson.questions - totals.first - totals.second) {
-                    discarded++
-                    continue
-                }
-                accepted.add(outcome)
-                usedCorrect += outcome.correct
-                usedWrong += outcome.wrong
-                usedBlank += outcome.blank
-            }
+            val selection = ReportRowAllocator.allocate(
+                rows, totals.first, totals.second,
+                lesson.questions - totals.first - totals.second
+            )
+            accepted.addAll(selection.accepted)
+            discarded += selection.rejected
+            alternativeChoices += selection.unresolvedAlternatives
         }
+        if (alternativeChoices > 0)
+            warnings.add("$alternativeChoices konu satırında eşit derecede olası " +
+                "OCR seçenekleri var; bu satırlar kullanıcı onayına bırakıldı.")
         if (discarded > 0)
             warnings.add("$discarded kazanım satırı ders toplamıyla eşleşmedi; otomatik eklenmedi.")
         val tagged = accepted.sumOf { it.questions }
