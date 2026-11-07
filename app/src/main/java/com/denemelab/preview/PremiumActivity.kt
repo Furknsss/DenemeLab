@@ -87,7 +87,7 @@ class PremiumActivity : ComponentActivity() {
         window.decorView.systemUiVisibility =
             android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
             android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-        setContent { DenemeLabApp() }
+        setContent { AccountAwareApp() }
     }
 }
 
@@ -144,7 +144,8 @@ private fun DenemeLabApp() {
                 )
                 Crossfade(targetState = tab, animationSpec = tween(if (reduceMotion) 0 else 190), label = "DenemeLabSection") { selected ->
                     when (selected) {
-                        0 -> HomeScreen(exams, questions, onAdd = { showAddExam = true }, onNavigate = { tab = it })
+                        0 -> HomeOverviewV19(studentProfile, exams, questions,
+                             onAddExam = { showAddExam = true }, onNavigate = { tab = it })
                         1 -> ExamsScreen(
                             exams, generalMode, onMode = { generalMode = it },
                             onDetail = { openedExam = it })
