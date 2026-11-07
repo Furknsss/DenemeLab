@@ -192,6 +192,7 @@ private fun DenemeLabSignIn() {
     val scope = rememberCoroutineScope()
     var registering by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -249,6 +250,15 @@ private fun DenemeLabSignIn() {
                     }
                 }
                 Spacer(Modifier.height(18.dp))
+                if (registering) {
+                    OutlinedTextField(
+                        value = firstName, onValueChange = { firstName = it },
+                        label = { Text("Adın") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(13.dp), enabled = !busy
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
                 OutlinedTextField(
                     value = email, onValueChange = { email = it.trim(); error = null },
                     label = { Text("E-posta adresi") },
@@ -295,7 +305,7 @@ private fun DenemeLabSignIn() {
                         scope.launch {
                             try {
                                 if (registering) FirebaseCloudBackup.registerWithEmail(
-                                    context, email, password)
+                                    context, email, password, firstName)
                                 else FirebaseCloudBackup.signInWithEmail(
                                     context, email, password)
                             } catch (e: Exception) {
@@ -305,7 +315,8 @@ private fun DenemeLabSignIn() {
                     },
                     enabled = !busy && android.util.Patterns.EMAIL_ADDRESS
                         .matcher(email).matches() &&
-                        password.length >= (if (registering) 8 else 1),
+                        password.length >= (if (registering) 8 else 1) &&
+                        (!registering || firstName.trim().length >= 2),
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = LoginInk)
