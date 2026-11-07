@@ -145,6 +145,31 @@ class ReportImportDeviceTest {
             assertEquals(1,extracted.pagesWithText)
             assertTrue("Positioned right column must contain real rows",
                 extracted.rightRows.size >= 120)
+            val positioned=DetailedReportReconciliation.reconcile(
+                extracted.text,extracted.leftRows,extracted.rightRows)
+            val byText=DetailedReportReconciliation.reconcile(
+                extracted.text,extracted.text.lines(),extracted.text.lines())
+            val scoreParts=ExamStructure.tytDetailed.map { lesson ->
+                val values=positioned.counts[lesson.key] ?: (0 to 0)
+                SubjectScore(lesson.key,lesson.title,lesson.questions,
+                    values.first,values.second)
+            }
+            val nativeCoverage=ReportCoverage.inspect(scoreParts,positioned.outcomes)
+            val summary=ExamStructure.tytDetailed.joinToString(" | ") { lesson ->
+                val rows=positioned.outcomes.filter { it.lessonKey==lesson.key }
+                lesson.title+":"+rows.sumOf { it.questions }+"/"+lesson.questions
+            }
+            println("DENEMELAB_SYNTHETIC_PDF_SOURCE:"+
+                " nativeRightRows="+extracted.rightRows.size+
+                " positioned="+positioned.validatedTopicQuestions+
+                " plainText="+byText.validatedTopicQuestions+
+                " detail="+summary)
+            println("DENEMELAB_SYNTHETIC_PDF_HEADINGS:"+
+                extracted.rightRows.filter {
+                    it.contains(" S D Y",true) || it.contains("Konu_6_",true)
+                }.take(15).joinToString(" | ").take(2000))
+            println("DENEMELAB_SYNTHETIC_PDF_AUDIT:"+
+                " native="+nativeCoverage.observed+" valid="+nativeCoverage.valid)
             val result=withTimeout(180_000L) {
                 HighResolutionReportOcr.recognize(context,Uri.fromFile(file))
             }
@@ -155,7 +180,9 @@ class ReportImportDeviceTest {
             }
             val audit=ReportCoverage.inspect(parts,result.outcomes)
             assertEquals("Ten scored subtests",10,result.foundCount)
-            assertEquals("Every printed question's topic and D/Y/B",120,audit.observed)
+            assertEquals("Every printed question's topic and D/Y/B; "+
+                "native="+nativeCoverage.observed+"; "+summary,
+                120,audit.observed)
             assertTrue("Verified all 120, no omissions",audit.complete)
         } finally {
             pdf.close()
