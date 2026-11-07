@@ -228,7 +228,7 @@ fun ExamEntryV3(
     val photoReady = reportResult != null && !readingReport && !preparingReport &&
         reviewedReport && examType == "TYT" && examCategory == "Genel" &&
         templates.all { verifiedKeys[it.key] == true } &&
-        (saveSubjectScoresOnly || (coverage.complete && successEvidenceValid))
+        (saveSubjectScoresOnly || (coverage.valid && successEvidenceValid))
     val saveEnabled = examName.isNotBlank() &&
         publisherName.isNotBlank() && !isSaving &&
         (issueError == null ||
@@ -477,6 +477,11 @@ fun ExamEntryV3(
                                 color = Muted, fontSize = 11.sp)
                             if (!coverage.complete) {
                                 Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Eksik konu satırlarını tahmin etmiyoruz. Doğruladığın konu kayıtlarıyla " +
+                                        "kaydettiğinde, ölçülmeyen soru sayısı Analiz ekranında gösterilir.",
+                                    color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                                Spacer(Modifier.height(8.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Checkbox(checked = saveSubjectScoresOnly,
                                         onCheckedChange = {
@@ -609,6 +614,8 @@ fun ExamEntryV3(
                                 colors = CheckboxDefaults.colors(checkedColor = Black))
                             Text(if (selectedMethod == "Fotoğraf ile Ekle" && saveSubjectScoresOnly)
                                 "Ders sonuçlarını belgeyle karşılaştırıp doğruladım"
+                                else if (!coverage.complete)
+                                    "Okunan konu satırlarını doğruladım; kalanlar ölçülmedi"
                                 else "Belge sonuçlarını ve konu detaylarını kontrol ettim",
                                 color = Black, fontSize = 12.sp, lineHeight = 17.sp,
                                 modifier = Modifier.weight(1f))
@@ -663,11 +670,12 @@ fun ExamEntryV3(
                                 topicIssues = if (selectedMethod == "Fotoğraf ile Ekle" &&
                                     saveSubjectScoresOnly) emptyList() else issueItems.toList(),
                                 topicOutcomes = if (selectedMethod == "Fotoğraf ile Ekle" &&
-                                    !saveSubjectScoresOnly && coverage.complete &&
+                                    !saveSubjectScoresOnly && coverage.valid &&
                                     successEvidenceValid) successItems.toList() else emptyList(),
                                 source = when {
                                     selectedMethod == "Manuel Ekle" -> "Manuel"
                                     saveSubjectScoresOnly -> "Belge OCR · yalnız doğrulanan ders sonuçları"
+                                    !coverage.complete -> "Belge OCR + kısmi doğrulanmış konu"
                                     else -> "Belge OCR + tam konu doğrulaması"
                                 }
                             )
