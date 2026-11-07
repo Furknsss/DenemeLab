@@ -63,6 +63,9 @@ object DetailedReportReconciliation {
         val mergedCounts = LinkedHashMap(flexible.values)
         mergedCounts.putAll(page.counts)
         mergedCounts.putAll(left.counts)
+        val totalCheck = PublishedTotalReconciliation.completeOneCourse(raw, mergedCounts)
+        mergedCounts.putAll(totalCheck.counts)
+        warnings.addAll(totalCheck.warnings)
 
         val validatedRight = mutableListOf<String>()
         var suspectNumericLines = 0
@@ -239,7 +242,8 @@ object DetailedReportReconciliation {
             // topic rows". Only distinct identified curriculum entries count.
             detectedTopicRows = candidates.size + conflictingTopics.size,
             validatedTopicQuestions = tagged,
-            ambiguousLessons = subjectConflict
+            ambiguousLessons = subjectConflict + totalCheck.derivedKeys,
+            derivedLessons = totalCheck.derivedKeys
         )
     }
 }
