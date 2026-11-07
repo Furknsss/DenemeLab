@@ -92,7 +92,7 @@ class PremiumActivity : ComponentActivity() {
 }
 
 @Composable
-private fun DenemeLabApp() {
+internal fun DenemeLabApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val publishers = remember { mutableStateListOf<PublisherBrand>().apply { addAll(PublisherCatalog.list(context)) } }
