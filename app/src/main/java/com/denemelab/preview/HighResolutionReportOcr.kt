@@ -288,7 +288,7 @@ object HighResolutionReportOcr {
         if (initial.foundCount > 0 && right.none { line ->
                 val text = line.text.trim()
                 text.isNotBlank() && (
-                    Regex("""\\d+\\s+\\d+\\s+\\d+""").containsMatchIn(text) ||
+                    Regex("""\d+\s+\d+\s+\d+""").containsMatchIn(text) ||
                     TopicAnalyticsV3.normalize(text).contains("kazan") ||
                     TopicAnalyticsV3.normalize(text).contains("konu"))
             }) {
