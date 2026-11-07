@@ -181,6 +181,21 @@ class BilgiSarmalReportRegressionTest {
             .sumOf { it.questions })
     }
 
+    @Test fun tinyCompressedNumericColumnsAreParsedWithoutInventingScores() {
+        assertEquals("Sözcükte Anlam 2 1 1 50",
+            CompactTopicColumns.expand("Sözcükte Anlam 21150", 6))
+        assertEquals("Fiilimsiler Karma 1 1 0 100",
+            CompactTopicColumns.expand("Fiilimsiler Karma 110100", 6))
+        assertEquals("Rutin Olmayan Problemler 4 1 0 25",
+            CompactTopicColumns.expand("Rutin Olmayan Problemler 41025", 6))
+        assertEquals("Ad Soylu Sözcükler Karma 1 0 0 0",
+            CompactTopicColumns.expand("Ad Soylu Sözcükler Karma 1000", 6))
+        // Broader publishers may have an 11-question topic, where 110100
+        // admits more than one interpretation; never choose a random split.
+        assertNull(CompactTopicColumns.expand("Fiilimsiler Karma 110100", 40))
+        assertNull(CompactTopicColumns.expand("Hatalı kazanım 111100", 6))
+    }
+
     @Test fun optionalPhilosophyAndGroupTotalsAreNotDoubleCounted() {
         val parsed = FlexibleReportTableParser.parse(summary.lines())
         assertEquals(10,parsed.values.size)
