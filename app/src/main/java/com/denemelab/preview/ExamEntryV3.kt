@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -603,7 +607,9 @@ fun ExamEntryV3(
                             Checkbox(checked = reviewedReport,
                                 onCheckedChange = { reviewedReport = it },
                                 colors = CheckboxDefaults.colors(checkedColor = Black))
-                            Text("Belge sonuçlarını ve konu detaylarını kontrol ettim",
+                            Text(if (selectedMethod == "Fotoğraf ile Ekle" && saveSubjectScoresOnly)
+                                "Ders sonuçlarını belgeyle karşılaştırıp doğruladım"
+                                else "Belge sonuçlarını ve konu detaylarını kontrol ettim",
                                 color = Black, fontSize = 12.sp, lineHeight = 17.sp,
                                 modifier = Modifier.weight(1f))
                         }
@@ -811,14 +817,86 @@ private fun PhotoImportPanel(
                         textAlign = TextAlign.Center)
                 } else {
                     var previewFailed by remember(photo) { mutableStateOf(false) }
+                    var showZoom by remember(photo) { mutableStateOf(false) }
                     AsyncImage(
                         model = photo,
-                        contentDescription = "Seçilen sonuç belgesi",
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                        contentDescription = "Belgeyi büyütmek için dokun",
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp)
+                            .clickable { showZoom = true },
                         contentScale = ContentScale.Fit,
                         onError = { previewFailed = true },
                         onSuccess = { previewFailed = false }
                     )
+                    TextButton(onClick = { showZoom = true }) {
+                        Text("Belgeyi büyüt ve kontrol et", color = Black, fontSize = 12.sp)
+                    }
+                    if (showZoom) {
+                        Dialog(
+                            onDismissRequest = { showZoom = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(.99f).fillMaxHeight(.94f),
+                                color = Color.White,
+                                shape = RoundedCornerShape(17.dp)
+                            ) {
+                                Column {
+                                    Row(Modifier.fillMaxWidth().padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Orijinal belge", color = Black,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.weight(1f))
+                                        IconButton(onClick = { showZoom = false }) {
+                                            Icon(Icons.Rounded.Close, "Kapat", tint = Black)
+                                        }
+                                    }
+                                    var scale by remember(photo) { mutableFloatStateOf(1f) }
+                                    var offset by remember(photo) { mutableStateOf(Offset.Zero) }
+                                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                                        AsyncImage(
+                                            model = photo,
+                                            contentDescription = "Yakınlaştırılabilir karne görseli",
+                                            modifier = Modifier.fillMaxSize()
+                                                .pointerInput(photo) {
+                                                    detectTransformGestures { _, pan, zoom, _ ->
+                                                        scale = (scale * zoom).coerceIn(1f, 6f)
+                                                        offset = if (scale > 1f)
+                                                            Offset(offset.x + pan.x, offset.y + pan.y)
+                                                        else Offset.Zero
+                                                    }
+                                                }
+                                                .graphicsLayer {
+                                                    scaleX = scale
+                                                    scaleY = scale
+                                                    translationX = offset.x
+                                                    translationY = offset.y
+                                                },
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(11.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        TextButton(onClick = {
+                                            scale = (scale - .5f).coerceAtLeast(1f)
+                                            if (scale == 1f) offset = Offset.Zero
+                                        }) { Text("−", color = Black, fontSize = 21.sp) }
+                                        Text("${(scale * 100).toInt()}%",
+                                            modifier = Modifier.align(Alignment.CenterVertically),
+                                            color = Muted)
+                                        TextButton(onClick = {
+                                            scale = (scale + .5f).coerceAtMost(6f)
+                                        }) { Text("+", color = Black, fontSize = 21.sp) }
+                                        TextButton(onClick = {
+                                            scale = 1f
+                                            offset = Offset.Zero
+                                        }) { Text("Sıfırla", color = Black) }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (previewFailed) {
                         Text("Küçük önizleme gösterilemedi; belge taraması ayrı çalışır.",
                             color = Muted, fontSize = 11.sp)
