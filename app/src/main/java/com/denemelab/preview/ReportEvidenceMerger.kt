@@ -58,8 +58,19 @@ object ReportEvidenceMerger {
             )
         }
         val warnings = mutableListOf<String>()
-        warnings.addAll(raster.warnings)
-        warnings.addAll(native.warnings)
+        // Completeness messages from intermediate sources become stale after
+        // merging complementary evidence. Recompute them from final totals.
+        warnings.addAll((raster.warnings + native.warnings).filterNot { line ->
+            line.contains("alt dersi okunamadı") ||
+                line.startsWith("Konu dağılımında ") ||
+                line.contains("kazanım satırı ders toplamıyla eşleşmedi")
+        })
+        if (counts.size < 10) warnings.add(
+            "${10 - counts.size} TYT alt dersi hiçbir kaynaktan doğrulanamadı.")
+        val expectedQuestions = counts.keys.sumOf { subjects[it]?.questions ?: 0 }
+        val observedQuestions = accepted.sumOf { it.questions }
+        if (expectedQuestions > observedQuestions)
+            warnings.add("Konu dağılımında ${observedQuestions}/${expectedQuestions} soru doğrulandı.")
         if (conflicted.isNotEmpty())
             warnings.add("${conflicted.size} derste PDF metni ile görsel okuma çelişiyor; dersleri doğrula.")
         if (discordant.isNotEmpty())
