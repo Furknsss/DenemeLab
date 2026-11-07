@@ -52,21 +52,30 @@ object ReportRowAllocator {
                 val path = state.path + index
                 val guaranteed = state.guaranteed + index
                 val old = next[target]
-                next[target] = if (old == null) State(path, guaranteed)
-                    else State(old.path, old.guaranteed.intersect(guaranteed))
+                // More independently detected curriculum rows are stronger
+                // evidence than a lone oversized OCR fragment. Ties at the
+                // same row count remain unresolved, not arbitrarily chosen.
+                next[target] = when {
+                    old == null -> State(path, guaranteed)
+                    path.size > old.count -> State(path, guaranteed)
+                    path.size == old.count -> State(
+                        old.path, old.guaranteed.intersect(guaranteed))
+                    else -> old
+                }
             }
             states = next
         }
         if (states.isEmpty()) return Allocation(emptyList(), rows.size, 0)
         val maximumQuestions = states.keys.maxOf { it.questions }
         val finalists = states.filterKeys { it.questions == maximumQuestions }
-        val best = finalists.values.toList()
+        val maximumRows = finalists.values.maxOf { it.count }
+        val best = finalists.values.filter { it.count == maximumRows }
         val common = best.map { it.guaranteed }.reduce { a, b -> a.intersect(b) }
         val accepted = candidates.filterIndexed { index, _ -> index in common }
         return Allocation(
             accepted = accepted,
             rejected = rows.size - accepted.size,
-            unresolvedAlternatives = (best.maxOf { it.count } - common.size).coerceAtLeast(0)
+            unresolvedAlternatives = maximumRows - common.size
         )
     }
 }
