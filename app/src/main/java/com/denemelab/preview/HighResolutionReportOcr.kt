@@ -89,19 +89,20 @@ object HighResolutionReportOcr {
                         val byText = DetailedReportReconciliation.reconcile(
                             native.text, native.text.lines(), native.text.lines()
                         )
-                        nativeResult = listOf(byPosition,byText).maxWithOrNull(
+                        val selectedNative = listOf(byPosition,byText).maxWith(
                             compareBy<ReportResult> { it.foundCount }
                                 .thenBy { it.validatedTopicQuestions }
                         )
                         val nativeParts = ExamStructure.tytDetailed.map { lesson ->
-                            val pair = nativeResult.counts[lesson.key] ?: (0 to 0)
+                            val pair = selectedNative.counts[lesson.key] ?: (0 to 0)
                             SubjectScore(lesson.key, lesson.title,
                                 lesson.questions, pair.first, pair.second)
                         }
-                        if (nativeResult.foundCount == 10 &&
-                            ReportCoverage.inspect(nativeParts, nativeResult.outcomes).complete) {
-                            return@withContext nativeResult.copy(warnings =
-                                (nativeResult.warnings +
+                        nativeResult = selectedNative
+                        if (selectedNative.foundCount == 10 &&
+                            ReportCoverage.inspect(nativeParts, selectedNative.outcomes).complete) {
+                            return@withContext selectedNative.copy(warnings =
+                                (selectedNative.warnings +
                                     "PDF'nin seçilebilir metni doğrudan okundu. Kaydetmeden önce kontrol et.")
                                     .distinct())
                         }
