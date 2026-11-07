@@ -430,6 +430,21 @@ fun ExamEntryV3(
                         reportResult?.let { report ->
                             Text("${report.foundCount}/10 ders algılandı",
                                 color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            val missingCourseNames = templates.filter { it.key !in report.counts }
+                                .map { it.title }
+                            if (missingCourseNames.isNotEmpty()) {
+                                Text("Okunamayan dersler: " + missingCourseNames.joinToString(", ") +
+                                    ". Bu dersin doğru/yanlış/boş değerlerini belgede kontrol et.",
+                                    color = Color(0xFFB42318), fontSize = 11.sp)
+                            }
+                            val conflictedCourseNames = templates.filter {
+                                it.key in report.ambiguousLessons }.map { it.title }
+                            if (conflictedCourseNames.isNotEmpty()) {
+                                Text("Çelişkili OCR satırları: " +
+                                    conflictedCourseNames.joinToString(", ") +
+                                    ". Belgeye bakmadan otomatik doğru sayılmaz.",
+                                    color = Color(0xFFB42318), fontSize = 11.sp)
+                            }
                             report.warnings.forEach {
                                 Text(it, color = Muted, fontSize = 11.sp)
                             }
