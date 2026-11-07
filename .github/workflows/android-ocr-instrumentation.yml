@@ -2,7 +2,7 @@ name: DenemeLab Android 16 Login and OCR Emulator
 
 on:
   push:
-    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, fix/bilgi-sarmal-report-regression-v018, feat/account-onboarding-cloud-home-v019]
+    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, fix/bilgi-sarmal-report-regression-v018, feat/account-onboarding-cloud-home-v019, fix/google-oauth-signer-gate-v020]
   workflow_dispatch:
 
 permissions:
@@ -37,6 +37,18 @@ jobs:
           test -n "$FIREBASE_ANDROID_CONFIG_B64" || { echo "::error::Firebase Android config missing"; exit 1; }
           umask 077
           printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+      - name: Restore same Firebase-registered signing certificate
+        env:
+          DENEMELAB_SIGNING_KEYSTORE_B64: ${{ secrets.DENEMELAB_SIGNING_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$DENEMELAB_SIGNING_KEYSTORE_B64" ]; then
+            echo "::error::Debug APK and device tests must use the same persistent OAuth signing certificate."
+            exit 1
+          fi
+          mkdir -p "$HOME/.android"
+          umask 077
+          printf "%s" "$DENEMELAB_SIGNING_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android >/dev/null
       - name: Enable emulator hardware acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi

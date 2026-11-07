@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013, fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, fix/bilgi-sarmal-report-regression-v018, integration/photo-ocr-premium-analysis-v018, feat/account-onboarding-cloud-home-v019]
+    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013, fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, fix/bilgi-sarmal-report-regression-v018, integration/photo-ocr-premium-analysis-v018, feat/account-onboarding-cloud-home-v019, fix/google-oauth-signer-gate-v020]
   workflow_dispatch:
 
 permissions:
@@ -29,31 +29,24 @@ jobs:
           packages: platform-tools
       - name: Install Android platform and build tools
         run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
-      - name: Restore stable test APK signing certificate
-        id: signing-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: denemelab-v013-debug-cert-1
-      - name: Prepare and display signing SHA-1 / SHA-256
+      # Reproducible signing is required for Google OAuth on *every* branch.
+      # GitHub Actions cache is branch-scoped and cannot be the signing source
+      # of truth. Never generate a new signing key on a release build.
+      - name: Install persistent Firebase-registered debug signing key
+        env:
+          DENEMELAB_SIGNING_KEYSTORE_B64: ${{ secrets.DENEMELAB_SIGNING_KEYSTORE_B64 }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -s "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" \
-              -alias androiddebugkey -storepass android -keypass android \
-              -keyalg RSA -keysize 2048 -validity 3650 \
-              -dname "CN=Android Debug,O=Android,C=US"
+          if [ -z "$DENEMELAB_SIGNING_KEYSTORE_B64" ]; then
+            echo "::error::DENEMELAB_SIGNING_KEYSTORE_B64 GitHub secret is missing. A random debug signer would break Google login (error 10)."
+            exit 1
           fi
-          echo "Register this TEST-APK SHA-1 in Firebase Console > Project settings > Your apps:"
-          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
-            -alias androiddebugkey -storepass android | grep -E 'SHA1:|SHA256:'
-          echo "Test-only certificate; release builds require a private production signing key."
-      - name: Save stable debug certificate privately in Actions cache
-        if: steps.signing-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: denemelab-v013-debug-cert-1
+          mkdir -p "$HOME/.android"
+          umask 077
+          printf "%s" "$DENEMELAB_SIGNING_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey             -storepass android >/dev/null || {
+              echo "::error::Persistent debug signing keystore is invalid."
+              exit 1
+            }
       - name: Configure Firebase Android app (required for v0.13)
         env:
           FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
@@ -89,12 +82,8 @@ jobs:
             echo "::error::Actual APK signer differs from the registered debug keystore. Publishing blocked."
             exit 1
           fi
-          if [ "$GITHUB_REF_NAME" = "feat/google-account-cloud-only-v013" ] &&
-             [ "$APK_SHA1" != "e9825be8fc2b21d05a8b2975691c86cb70318034" ]; then
-            echo "::error::APK signer is not the SHA-1 registered in DenemeLab Firebase. Publishing blocked."
-            exit 1
-          fi
-          echo "Android APK signer matches the Firebase debug certificate (SHA-1: $APK_SHA1)."
+          echo "APK signer and configured signing keystore match (SHA-1: $APK_SHA1)."
+          APK_SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"             python3 scripts/verify_google_oauth_signing.py               --apk app/build/outputs/apk/debug/app-debug.apk               --firebase app/google-services.json               --package com.denemelab.preview
           # Validate the packaged resource, not an AGP-version-specific intermediate path.
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources app/build/outputs/apk/debug/app-debug.apk > /tmp/denemelab-debug-resources.txt
           if ! grep -q 'string/google_app_id' /tmp/denemelab-debug-resources.txt; then

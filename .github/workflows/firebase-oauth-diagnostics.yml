@@ -1,0 +1,53 @@
+name: DenemeLab Firebase OAuth Certificate Diagnostics
+
+on:
+  push:
+    branches: [fix/google-oauth-signer-gate-v020]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firebase-oauth-metadata:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test APK OAuth certificate validator
+        run: python3 -m unittest discover -s scripts -p 'test_verify_google_oauth_signing.py' -v
+      - name: Check registered Android OAuth fingerprint safely
+        env:
+          FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
+        run: |
+          python3 - <<'PY'
+          import os, json, base64
+          raw = os.environ.get("FIREBASE_ANDROID_CONFIG_B64", "")
+          if not raw:
+              raise SystemExit("FIREBASE_ANDROID_CONFIG_B64 missing")
+          config = json.loads(base64.b64decode(raw))
+          package = "com.denemelab.preview"
+          android = set()
+          web_count = 0
+          for client in config.get("client", []):
+              pkg = client.get("client_info", {}).get("android_client_info", {}).get("package_name")
+              if pkg != package:
+                  continue
+              for credential in client.get("oauth_client", []):
+                  if credential.get("client_type") == 1:
+                      info = credential.get("android_info", {})
+                      if info.get("package_name") == package:
+                          cert = info.get("certificate_hash", "").replace(":", "").lower()
+                          if len(cert) == 40: android.add(cert)
+                  if credential.get("client_type") == 3:
+                      web_count += 1
+          tested = "ccddeeb6f784d00fab77f98bd3ea917512fe4fe3"
+          older = "8282f1d26462674541eb62ee0fa6762565a55ef6"
+          print("Android OAuth certificate count in Firebase config:", len(android))
+          print("Web OAuth client configured:", web_count > 0)
+          print("v0.19 APK SHA-1 registered:", tested in android)
+          print("v0.18 APK SHA-1 registered:", older in android)
+          if tested not in android:
+              print("Current installed v0.19 Android signer is NOT recognized by this config.")
+          if not android:
+              print("No Android OAuth client SHA-1 in the saved config; refresh google-services.json.")
+          PY
