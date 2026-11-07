@@ -40,8 +40,8 @@ fun AnalysisEvidencePanel(snapshot: AnalysisSnapshot) {
     val lessonDetails = lastDetailed?.let(AnalysisEvidence::perLesson).orEmpty()
     var selectedLesson by remember(snapshot.scope) { mutableStateOf("Tümü") }
     var showAllTopics by remember(snapshot.scope) { mutableStateOf(false) }
-    val selectedTopics = topics.filter { selectedLesson == "Tümü" ||
-        it.lessonName == selectedLesson }
+    val selectedTopics = topics.filter { (selectedLesson == "Tümü" ||
+        it.lessonName == selectedLesson) && it.wrong + it.blank > 0 }
     val visibleTopics = if (showAllTopics) selectedTopics else selectedTopics.take(12)
 
     Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
