@@ -208,7 +208,7 @@ object HighResolutionReportOcr {
             ))
         val left = mutableListOf<Line>()
         val right = mutableListOf<Line>()
-        suspend fun scan(regions: List<Region>) {
+        suspend fun scan(regions: List<Region>, originalPixels: Boolean = false) {
             for (tile in regions) {
                 val box = tile.bounds
                 if (box.width() < 64 || box.height() < 64) continue
@@ -223,7 +223,9 @@ object HighResolutionReportOcr {
                         (source.height * scale).roundToInt(), true)
                 } else source
                 if (scaled !== source) source.recycle()
-                val enhanced = enhanceDocument(scaled)
+                // A second, unfiltered pass is essential for thin 3D
+                // curriculum glyphs: contrast filters can erase a 1px digit.
+                val enhanced = if (originalPixels) scaled else enhanceDocument(scaled)
                 try {
                     val text = read(recognizer, enhanced)
                     // Even "full-width" fallback crops must never concatenate
@@ -238,7 +240,7 @@ object HighResolutionReportOcr {
                 } catch (e: Exception) {
                     warnings.add("Belgenin bir bölümündeki metin okunamadı.")
                 } finally {
-                    enhanced.recycle()
+                    if (enhanced !== scaled) enhanced.recycle()
                     scaled.recycle()
                 }
             }
@@ -269,6 +271,18 @@ object HighResolutionReportOcr {
                 region("right-middle",0f,.38f,1f,.75f),
                 region("right-footer",0f,.73f,1f,1f)
             ))
+            // Independent narrow, overlapping bands preserve tiny row spacing
+            // and allow higher effective OCR scale than full-page passes.
+            // Use original pixels to avoid destroying small digits/percentages.
+            scan(listOf(
+                region("summary-top-original",0f,0f,.52f,.38f),
+                region("summary-bottom-original",0f,.35f,.52f,.78f),
+                region("curriculum-1-original",.47f,0f,1f,.20f),
+                region("curriculum-2-original",.47f,.18f,1f,.40f),
+                region("curriculum-3-original",.47f,.38f,1f,.60f),
+                region("curriculum-4-original",.47f,.58f,1f,.80f),
+                region("curriculum-5-original",.47f,.78f,1f,1f)
+            ), originalPixels = true)
         }
         return Fragments(
             overview,
