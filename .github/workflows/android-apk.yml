@@ -2,7 +2,7 @@ name: DenemeLab Android APK
 
 on:
   push:
-    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013, fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017]
+    branches: [main, feat/analysis-minimal-v09, fix/ocr-highres-topic-rows-v09, feat/analysis-actionable-premium-v010, feat/data-pack-logos-report-import-v011, feat/firebase-auth-cloud-backup-v012, feat/google-account-cloud-only-v013, fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, feat/analysis-premium-insights-v018]
   workflow_dispatch:
 
 permissions:
