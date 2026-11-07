@@ -428,7 +428,10 @@ fun ExamEntryV3(
                             }
                         }
                         reportResult?.let { report ->
-                            Text("${report.foundCount}/10 ders algılandı",
+                            Text(
+                                if (report.derivedLessons.isEmpty()) "${report.foundCount}/10 ders algılandı"
+                                else "${report.foundCount - report.derivedLessons.size}/10 ders okundu · " +
+                                    "${report.derivedLessons.size} ders toplamdan hesaplandı",
                                 color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             val missingCourseNames = templates.filter { it.key !in report.counts }
                                 .map { it.title }
@@ -438,7 +441,8 @@ fun ExamEntryV3(
                                     color = Color(0xFFB42318), fontSize = 11.sp)
                             }
                             val conflictedCourseNames = templates.filter {
-                                it.key in report.ambiguousLessons }.map { it.title }
+                                it.key in report.ambiguousLessons &&
+                                    it.key !in report.derivedLessons }.map { it.title }
                             if (conflictedCourseNames.isNotEmpty()) {
                                 Text("Çelişkili OCR satırları: " +
                                     conflictedCourseNames.joinToString(", ") +

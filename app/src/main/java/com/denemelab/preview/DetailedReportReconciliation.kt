@@ -63,14 +63,27 @@ object DetailedReportReconciliation {
         val mergedCounts = LinkedHashMap(flexible.values)
         mergedCounts.putAll(page.counts)
         mergedCounts.putAll(left.counts)
+        val totalCheck = PublishedTotalReconciliation.completeOneCourse(raw, mergedCounts)
+        mergedCounts.putAll(totalCheck.counts)
+        warnings.addAll(totalCheck.warnings)
 
         val validatedRight = mutableListOf<String>()
         var suspectNumericLines = 0
         var recoveredWithoutPercent = 0
         var detectedRows = 0
         var blankStyleColumns = 0
+        var recoveredCompact = 0
+        val publisherHeading = TopicAnalyticsV3.normalize(raw)
+        // In the supplied Bilgi Sarmal sheet, printed curriculum rows have
+        // at most six questions; larger concatenated numbers could be
+        // ambiguous. Other report families keep a conservative 40-question
+        // bound and auto-recover only uniquely decodable suffixes.
+        val compactBound = if (publisherHeading.contains("bilgi sarmal") ||
+            publisherHeading.contains("bilgisarmal")) 6 else 40
         for (row in rightRows) {
-            val trimmed = row.trim()
+            val compact = CompactTopicColumns.expand(row, compactBound)
+            if (compact != null) recoveredCompact++
+            val trimmed = compact ?: row.trim()
             val columns = finalColumns.find(trimmed)
             if (columns == null) {
                 // A tiny B% glyph may disappear while S/D/Y remain.
@@ -118,6 +131,9 @@ object DetailedReportReconciliation {
                 validatedRight += trimmed.removeSuffix("%")
             }
         }
+        if (recoveredCompact > 0)
+            warnings.add("$recoveredCompact konu satırının bitişik S/D/Y/B% sayıları " +
+                "tutarlı biçimde ayrıştırıldı; kaydetmeden önce belgeyle karşılaştır.")
         if (suspectNumericLines > 0)
             warnings.add("$suspectNumericLines sayısal satır tutarsız; otomatik veri olarak kabul edilmedi.")
         if (blankStyleColumns > 0)
@@ -226,7 +242,8 @@ object DetailedReportReconciliation {
             // topic rows". Only distinct identified curriculum entries count.
             detectedTopicRows = candidates.size + conflictingTopics.size,
             validatedTopicQuestions = tagged,
-            ambiguousLessons = subjectConflict
+            ambiguousLessons = subjectConflict + totalCheck.derivedKeys,
+            derivedLessons = totalCheck.derivedKeys
         )
     }
 }

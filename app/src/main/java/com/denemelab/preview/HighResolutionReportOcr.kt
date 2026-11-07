@@ -265,6 +265,15 @@ object HighResolutionReportOcr {
         }
         if (initial.foundCount < 10 ||
             !ReportCoverage.inspect(initialParts, initial.outcomes).complete) {
+            // On Bilgi Sarmal's two-column sheet the final Biology line is
+            // near 40% of page height. A large left-half scan reduces tiny
+            // characters, so reread the actual SCORE TABLE in tight bands.
+            // The right-hand topic list may be cropped; never extrapolate it.
+            scan(listOf(
+                region("score-table-original",.005f,.145f,.485f,.445f),
+                region("score-upper-original",.005f,.16f,.485f,.305f),
+                region("score-lower-original",.005f,.285f,.485f,.445f)
+            ), originalPixels = true)
             scan(listOf(
                 region("left-footer",0f,.67f,.55f,1f),
                 region("right-overview",0f,0f,1f,.40f),

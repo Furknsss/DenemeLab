@@ -84,7 +84,8 @@ object ReportEvidenceMerger {
             outcomes = accepted,
             detectedTopicRows = topicsByIdentity.size,
             validatedTopicQuestions = accepted.sumOf { it.questions },
-            ambiguousLessons = conflicted
+            ambiguousLessons = conflicted + raster.derivedLessons + native.derivedLessons,
+            derivedLessons = raster.derivedLessons + native.derivedLessons
         )
     }
 }
