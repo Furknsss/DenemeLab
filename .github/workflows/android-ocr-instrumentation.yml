@@ -2,7 +2,7 @@ name: DenemeLab Android 16 Login and OCR Emulator
 
 on:
   push:
-    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, fix/bilgi-sarmal-report-regression-v018, feat/account-onboarding-cloud-home-v019]
+    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016, fix/report-ocr-multipass-coverage-v016, feat/analysis-coverage-data-v017, fix/bilgi-sarmal-report-regression-v018, feat/account-onboarding-cloud-home-v019, qa/v019-android16-final]
   workflow_dispatch:
 
 permissions:
