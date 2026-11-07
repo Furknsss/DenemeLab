@@ -462,6 +462,34 @@ fun ExamEntryV3(
                                     ". Belgeye bakmadan otomatik doğru sayılmaz.",
                                     color = Color(0xFFB42318), fontSize = 11.sp)
                             }
+                            val needsVerification = templates.filter { verifiedKeys[it.key] != true }
+                            if (needsVerification.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("Belgeden doğrulanması gereken dersler",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Black, fontSize = 12.sp)
+                                needsVerification.forEach { lesson ->
+                                    val pair = numbers[lesson.key]
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(lesson.title, color = Black, fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium)
+                                            Text(if (pair == null) "Ders sonucu okunamadı"
+                                                else "${pair.first} doğru · ${pair.second} yanlış · " +
+                                                    "${lesson.questions - pair.first - pair.second} boş",
+                                                color = Muted, fontSize = 11.sp)
+                                        }
+                                        if (pair != null) {
+                                            TextButton(onClick = {
+                                                verifiedKeys[lesson.key] = true
+                                            }) {
+                                                Text("Doğruladım", color = Black, fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             if (report.warnings.isNotEmpty()) {
                                 TextButton(onClick = { showOcrWarnings = !showOcrWarnings }) {
                                     Text(if (showOcrWarnings) "Okuma ayrıntılarını gizle" else
