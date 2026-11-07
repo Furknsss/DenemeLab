@@ -12,6 +12,9 @@ jobs:
   firebase-oauth-metadata:
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
+      - name: Test APK OAuth certificate validator
+        run: python3 -m unittest discover -s scripts -p 'test_verify_google_oauth_signing.py' -v
       - name: Check registered Android OAuth fingerprint safely
         env:
           FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
