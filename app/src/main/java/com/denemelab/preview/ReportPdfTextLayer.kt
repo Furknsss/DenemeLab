@@ -36,7 +36,7 @@ object ReportPdfTextLayer {
                 reader.startPage = page
                 reader.endPage = page
                 val raw = reader.getText(document).trim()
-                if (raw.count { it.isLetterOrDigit() } >= 24) {
+                if (raw.count { it.isLetterOrDigit() } >= 12) {
                     pages.add(raw)
                     readable++
                 }
