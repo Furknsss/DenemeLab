@@ -293,6 +293,26 @@ object HighResolutionReportOcr {
                 region("curriculum-5-original",.47f,.78f,1f,1f)
             ), originalPixels = true)
         }
+        // Extra resolution only when completeness is still missing.
+        // On a tall 1200x10000 screenshot the original 20%-height tile
+        // scales at ~1.2x, whereas 8%-height overlapping micro-strips
+        // can scale above 2x. This prevents losing small S/D/Y/B% digits.
+        val afterCoarse = DetailedReportReconciliation.reconcile(
+            overview, deduplicate(left).map { it.text },
+            deduplicate(right).map { it.text })
+        val afterParts = ExamStructure.tytDetailed.map { lesson ->
+            val pair = afterCoarse.counts[lesson.key] ?: (0 to 0)
+            SubjectScore(lesson.key, lesson.title, lesson.questions,
+                pair.first, pair.second)
+        }
+        if (!ReportCoverage.inspect(afterParts, afterCoarse.outcomes).complete) {
+            val micro = (0 until 12).map { index ->
+                val start = (index / 12f - .012f).coerceAtLeast(0f)
+                val end = ((index+1) / 12f + .012f).coerceAtMost(1f)
+                region("curriculum-micro-$index", .455f, start, 1f, end)
+            }
+            scan(micro, originalPixels = true)
+        }
         return Fragments(
             overview,
             deduplicate(left).map { it.text },
@@ -464,6 +484,19 @@ object HighResolutionReportOcr {
                 ))
             }
         }
+        // ML Kit often already knows row boundaries. Preserve those
+        // original lines as a second candidate; our spatial word regrouping
+        // is useful when the numeric columns are detected separately, but
+        // can accidentally join two physically adjacent tiny rows.
+        text.textBlocks.flatMap { it.lines }.forEach { line ->
+            val bounds = line.boundingBox ?: return@forEach
+            val leftEdge = box.left + bounds.left / scale
+            val rightEdge = box.left + bounds.right / scale
+            val pageMidpoint = pageWidth * 0.49f
+            if (leftEdge < pageMidpoint && rightEdge > pageMidpoint) return@forEach
+            if (line.text.isNotBlank()) results.add(Line(
+                line.text.trim(), box.top + bounds.exactCenterY()/scale, leftEdge))
+        }
         return results.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })
     }
 
@@ -484,8 +517,11 @@ object HighResolutionReportOcr {
             }
             if (matchAt < 0) result.add(candidate) else {
                 val old = result[matchAt]
-                // More recognized columns generally yield more characters.
-                if (candidate.text.length > old.text.length) result[matchAt] = candidate
+                // Numerically complete S/D/Y/B% is more reliable than
+                // a longer string containing stray OCR noise.
+                val oldScore = ReportOcrTextQualityV22.score(old.text)
+                val newScore = ReportOcrTextQualityV22.score(candidate.text)
+                if (newScore > oldScore) result[matchAt] = candidate
             }
         }
         return result.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })
