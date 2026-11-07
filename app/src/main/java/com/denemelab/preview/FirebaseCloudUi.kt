@@ -52,7 +52,7 @@ fun FirebaseCloudSection(onRestored: () -> Unit) {
     val scope = rememberCoroutineScope()
     val active = remember(context) { FirebaseCloudBackup.configured(context) }
     val oauthReady = remember(context) { GoogleAccountAuth.webClientConfigured(context) }
-    var account by remember { mutableStateOf(GoogleAccountAuth.accountEmail(context)) }
+    var account by remember { mutableStateOf(FirebaseCloudBackup.accountEmail(context)) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
@@ -135,7 +135,7 @@ fun FirebaseCloudSection(onRestored: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text("Bulut yedekleme", fontWeight = FontWeight.Bold,
                     color = CloudInk, fontSize = 20.sp)
-                Text("Google hesabınla güvenli yedek", color = CloudGray, fontSize = 11.sp)
+                Text("Hesabına özel güvenli bulut yedeği", color = CloudGray, fontSize = 11.sp)
             }
         }
         Text(
@@ -333,7 +333,7 @@ fun FirebaseCloudSection(onRestored: () -> Unit) {
                         account = null
                         remote = null
                         auto = false
-                        message = "Google hesabından çıkıldı. Telefonda kayıtlı denemeler silinmedi."
+                        message = "Hesaptan çıkıldı. Bu cihazdaki kayıtların korunuyor."
                         busy = false
                     }
                 },
