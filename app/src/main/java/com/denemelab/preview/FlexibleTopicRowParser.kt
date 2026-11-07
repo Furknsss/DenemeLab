@@ -54,7 +54,7 @@ object FlexibleTopicRowParser {
                 .firstOrNull { label == it.key ||
                     (label.startsWith(it.key + " ") &&
                     label.removePrefix(it.key).trim().matches(
-                        Regex("""(?:soru|d|y|b|net|\d|\s|%)*""")
+                        Regex("""(?:soru|s|d|y|b|net|\d|\s|%)*""")
                     ))
                 }
             if (matchedHeading != null) {
