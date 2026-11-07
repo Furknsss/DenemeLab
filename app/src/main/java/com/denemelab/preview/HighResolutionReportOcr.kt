@@ -163,30 +163,16 @@ object HighResolutionReportOcr {
                     overviews.joinToString("\n"), allLeft, allRight
                 )
                 val native = nativeResult
-                // A source with more grounded, validated results may help with
-                // missing tiny rows. Never silently discard contradictory
-                // subject numbers between native PDF and raster OCR passes.
-                val result = if (native != null &&
-                    native.foundCount * 25 + native.validatedTopicQuestions >
-                        rasterResult.foundCount * 25 + rasterResult.validatedTopicQuestions) {
-                    native
-                } else rasterResult
-                val conflictKeys = if (native == null) emptySet() else
-                    native.counts.keys.intersect(rasterResult.counts.keys)
-                        .filter { native.counts[it] != rasterResult.counts[it] }.toSet()
+                val result = if (native == null) rasterResult
+                    else ReportEvidenceMerger.merge(rasterResult, native)
                 val moreWarnings = if (result.foundCount == 0) {
                     listOf(
                         "Bu karnenin ders tablosu otomatik çözümlenemedi. " +
                         "Görüntü açıldı; kaydetmeden önce ders rakamlarını elle doğrula."
                     )
                 } else emptyList()
-                val additional = if (conflictKeys.isEmpty()) emptyList() else listOf(
-                    "PDF metni ve görsel OCR'si ${conflictKeys.size} dersin sonucunda " +
-                    "farklı değerler buldu. Bu dersleri elle kontrol et."
-                )
                 result.copy(
-                    warnings = (warnings + result.warnings + moreWarnings + additional).distinct(),
-                    ambiguousLessons = result.ambiguousLessons + conflictKeys
+                    warnings = (warnings + result.warnings + moreWarnings).distinct()
                 )
             } finally {
                 recognizer.close()
@@ -429,7 +415,7 @@ object HighResolutionReportOcr {
         if (words.isEmpty()) return emptyList()
         val heights = words.map { it.height }.filter { it > 0 }.sorted()
         val median = heights[heights.size / 2]
-        val tolerance = (median * 0.39f).coerceIn(0.6f, 3.2f)
+        val tolerance = (median * 0.45f).coerceIn(0.8f, 6.5f)
         val wide = box.width() > pageWidth * 0.57f
         val fragments = if (wide) words.groupBy {
             if (it.x < pageWidth * 0.49f) 0 else 1
