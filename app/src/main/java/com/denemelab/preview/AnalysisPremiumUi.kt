@@ -216,7 +216,7 @@ fun AnalysisDashboard(
         // The subtest and topic layers remain truthful when an OCR report
         // has only partial curriculum coverage.
         Spacer(Modifier.height(17.dp))
-        PremiumAnalysisPanelV18(snapshot)
+        PremiumAnalysisPanelV18(snapshot, exams)
     }
 }
 
