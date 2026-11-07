@@ -196,6 +196,50 @@ class BilgiSarmalReportRegressionTest {
         assertNull(CompactTopicColumns.expand("Hatalı kazanım 111100", 6))
     }
 
+    @Test fun oneMissingLessonMayBeDerivedButMustBeMarkedUnverified() {
+        val missingBiology = summary.lines()
+            .filterNot { it.startsWith("Biyoloji 6 ") }.joinToString("\n")
+        val report = DetailedReportReconciliation.reconcile(
+            missingBiology, missingBiology.lines(), topics
+        )
+        assertEquals(10, report.counts.size)
+        assertEquals(4 to 1, report.counts["tyt_biyoloji"])
+        assertTrue(report.derivedLessons.contains("tyt_biyoloji"))
+        assertTrue(report.ambiguousLessons.contains("tyt_biyoloji"))
+        assertTrue(report.outcomes.none { it.lessonKey == "tyt_biyoloji" })
+        assertTrue(report.warnings.any { it.contains("toplam",ignoreCase = true) })
+        // An OCR-ed overall net inconsistent with 71D/26Y cannot infer.
+        val wrongNet = missingBiology.replace("120 71 26 64,50", "120 71 26 65,50")
+        val rejected = PublishedTotalReconciliation.completeOneCourse(
+            wrongNet, FlexibleReportTableParser.parse(wrongNet.lines()).values)
+        assertFalse(rejected.counts.containsKey("tyt_biyoloji"))
+    }
+
+    @Test fun mergedSmallFontColumnsStillRetainAllVisibleTopics() {
+        val compact = topics.map {
+            when {
+                it.startsWith("Sözcükte Anlam ") ->
+                    it.replace("2 1 1 50", "21150")
+                it.startsWith("Fiilimsiler Karma ") ->
+                    it.replace("1 1 0 100", "110100")
+                it.startsWith("Rutin Olmayan Problemler ") ->
+                    it.replace("4 1 0 25", "41025")
+                it.startsWith("Ad Soylu Sözcükler Karma ") ->
+                    it.replace("1 0 0 0", "1000")
+                else -> it
+            }
+        }
+        val report = DetailedReportReconciliation.reconcile(
+            "BİLGİ SARMAL TYT TG 1\n" + summary, summary.lines(), compact)
+        val parts = ExamStructure.tytDetailed.map {
+            val score = report.counts.getValue(it.key)
+            SubjectScore(it.key,it.title,it.questions,score.first,score.second)
+        }
+        assertTrue(ReportCoverage.inspect(parts,report.outcomes).valid)
+        assertEquals(111, ReportCoverage.inspect(parts,report.outcomes).observed)
+        assertTrue(report.warnings.any { it.contains("bitişik", ignoreCase = true) })
+    }
+
     @Test fun optionalPhilosophyAndGroupTotalsAreNotDoubleCounted() {
         val parsed = FlexibleReportTableParser.parse(summary.lines())
         assertEquals(10,parsed.values.size)
