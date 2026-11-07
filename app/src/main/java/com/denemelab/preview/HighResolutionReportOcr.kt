@@ -211,6 +211,18 @@ object HighResolutionReportOcr {
         } finally {
             if (preview !== bitmap) preview.recycle()
         }
+        // PDF cover pages sometimes have only "Deneme sonuç karnesi".
+        // Skipping detailed OCR here avoids processing 20+ useless tiles
+        // before reaching page 2 (previously timed out after 120 s).
+        val normalizedPreview = TopicAnalyticsV3.normalize(overview)
+        val hasCourseMarker = Regex(
+            """(?:tyt|turkce|matematik|geometri|tarih|cografya|felsefe|fizik|kimya|biyoloji|din kult|kazan)"""
+        ).containsMatchIn(normalizedPreview)
+        if (!hasCourseMarker && normalizedPreview.contains("deneme") &&
+            normalizedPreview.length < 220) {
+            return Fragments(overview,emptyList(),emptyList(),
+                listOf("Kapak/özet sayfası: ders ve kazanım tablosu bulunamadı."))
+        }
         val width = bitmap.width
         val height = bitmap.height
         fun region(name: String, x1: Float, y1: Float, x2: Float, y2: Float) =
@@ -270,6 +282,19 @@ object HighResolutionReportOcr {
             overview, deduplicate(left).map { it.text },
             deduplicate(right).map { it.text }
         )
+        // A score-only page has no curriculum column; preserve its scores
+        // and avoid scanning 20 extra crops. Reports with even a partially
+        // recognized right-hand topic table still use the detailed rescans.
+        if (initial.foundCount > 0 && right.none { line ->
+                val text = line.text.trim()
+                text.isNotBlank() && (
+                    Regex("""\\d+\\s+\\d+\\s+\\d+""").containsMatchIn(text) ||
+                    TopicAnalyticsV3.normalize(text).contains("kazan") ||
+                    TopicAnalyticsV3.normalize(text).contains("konu"))
+            }) {
+            return Fragments(overview,deduplicate(left).map { it.text },
+                emptyList(),warnings.distinct())
+        }
         // Publisher layouts vary: a 3D-style half-page split cannot read
         // a full-width table or a course list near the foot of the page.
         val initialParts = ExamStructure.tytDetailed.map { lesson ->
