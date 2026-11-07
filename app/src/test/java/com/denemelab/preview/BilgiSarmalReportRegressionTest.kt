@@ -246,4 +246,37 @@ class BilgiSarmalReportRegressionTest {
         assertEquals(5 to 0, parsed.values["tyt_tarih"])
         assertEquals(4 to 1, parsed.values["tyt_felsefe"])
     }
+    @Test fun completeSynthetic120RowTableCanBeReconciledWithoutDroppingValidRows() {
+        // The original uploaded reference was cropped at 111 questions.
+        // These final nine rows are SYNTHETIC FIXTURE DATA to exercise the
+        // parser's 120/120 ceiling, not claims about the student's answers.
+        val extra = listOf(
+            "Çözeltiler 1 1 0 100",
+            "Asit ve Bazlar 1 0 1 0",
+            "Kimyasal Tepkimeler 1 0 1 0",
+            "Biyoloji S D Y B%",
+            "Hücrenin Yapısı 1 1 0 100",
+            "Organeller 1 1 0 100",
+            "Mitoz 1 1 0 100",
+            "Mayoz 1 1 0 100",
+            "Ekoloji 1 0 1 0",
+            "Canlıları Sınıflandırma 1 0 0 0"
+        )
+        val result = DetailedReportReconciliation.reconcile(
+            "BİLGİ SARMAL TYT TG 1\n" + summary,
+            summary.lines(), topics + extra
+        )
+        val parts = ExamStructure.tytDetailed.map {
+            val scores = result.counts[it.key]!!
+            SubjectScore(it.key, it.title, it.questions, scores.first, scores.second)
+        }
+        val coverage = ReportCoverage.inspect(parts, result.outcomes)
+        assertTrue("Complete printed D/Y/B table must be accepted",coverage.valid)
+        assertTrue("Should reach all 120 question slots if every row is present", coverage.complete)
+        assertEquals(120, coverage.observed)
+        assertEquals(0, coverage.missing)
+        assertEquals(23, result.outcomes.filter { it.lessonKey == "tyt_turkce" }
+            .size)
+    }
+
 }
