@@ -1,4 +1,4 @@
-name: DenemeLab v0.21 Signed Compatibility Candidate
+name: DenemeLab v0.22 Signed Compatibility Candidate
 
 on:
   push:
@@ -17,17 +17,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Checkout OCR-fixed v0.21 source, without modifying existing v0.19 source
+      - name: Checkout OCR-fixed v0.22 source, without modifying existing v0.19 source
         uses: actions/checkout@v4
         with:
-          ref: 8fc8a3948516d28e4479c4ca93faa10e3a7d8bf1
+          ref: c92d654d2db4d430ba8538d4be9c816673d40ea7
           persist-credentials: false
       - name: Assert exact repaired source version
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "8fc8a3948516d28e4479c4ca93faa10e3a7d8bf1"
-          grep -q 'versionCode = 21' app/build.gradle.kts
-          grep -q 'versionName = "0.21.0"' app/build.gradle.kts
+          test "$(git rev-parse HEAD)" = "c92d654d2db4d430ba8538d4be9c816673d40ea7"
+          grep -q 'versionCode = 22' app/build.gradle.kts
+          grep -q 'versionName = "0.22.0"' app/build.gradle.kts
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -89,7 +89,7 @@ jobs:
 
       - name: Run full OCR and Android domain regression tests
         run: bash ./gradlew :app:testDebugUnitTest --no-daemon --no-configuration-cache --max-workers=2
-      - name: Assemble signed v0.21 debug APK using v0.19 signer
+      - name: Assemble signed v0.22 debug APK using v0.19 signer
         run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
       - name: Validate original signature and Android package
         run: |
@@ -109,10 +109,10 @@ jobs:
           sha256sum "$APK"
           echo "APK is signed with v0.19's actual installed certificate."
           echo "Firebase console SHA registration and real Google login still require device validation."
-      - name: Upload v0.21 compatibility APK
+      - name: Upload v0.22 compatibility APK
         uses: actions/upload-artifact@v4
         with:
-          name: DenemeLab-v021-OriginalSigner-TestAPK
+          name: DenemeLab-v022-OriginalSigner-TestAPK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 5
