@@ -83,7 +83,7 @@ object FirebaseCloudBackup {
         return result.user?.uid ?: throw IOException("Oturum açılamadı.")
     }
 
-    suspend fun registerWithEmail(context: Context, email: String, password: String): String {
+    suspend fun registerWithEmail(context: Context, email: String, password: String, displayName: String = ""): String {
         if (!configured(context)) throw IOException("Firebase yapılandırması eksik.")
         val cleanEmail = email.trim()
         require(cleanEmail.isNotBlank() && password.length >= 8) {
@@ -91,7 +91,13 @@ object FirebaseCloudBackup {
         }
         val result = FirebaseAuth.getInstance()
             .createUserWithEmailAndPassword(cleanEmail, password).awaitTask()
-        return result.user?.uid ?: throw IOException("Kayıt oluşturulamadı.")
+        val user = result.user ?: throw IOException("Kayıt oluşturulamadı.")
+        if (displayName.isNotBlank()) {
+            val changes = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                .setDisplayName(displayName.trim()).build()
+            user.updateProfile(changes).awaitTask()
+        }
+        return user.uid
     }
 
     suspend fun sendPasswordReset(context: Context, email: String) {
