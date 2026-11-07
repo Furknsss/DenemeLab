@@ -126,13 +126,13 @@ object ReportTableParser {
                 lowered.startsWith("tarih 1") -> { current = "tyt_tarih"; continue }
                 lowered.startsWith("cografya 1") -> { current = "tyt_cografya"; continue }
                 lowered.startsWith("felsefe secmeli") -> { current = ""; continue }
-                lowered == "felsefe" -> { current = "tyt_felsefe"; continue }
+                lowered == "felsefe" || lowered.startsWith("felsefe s d y") -> { current = "tyt_felsefe"; continue }
                 lowered.startsWith("din kul") -> { current = "tyt_din"; continue }
                 lowered.startsWith("matematik 1") -> { current = "tyt_mat"; continue }
-                lowered == "geometri" -> { current = "tyt_geo"; continue }
-                lowered == "fizik" -> { current = "tyt_fizik"; continue }
-                lowered == "kimya" -> { current = "tyt_kimya"; continue }
-                lowered == "biyoloji" -> { current = "tyt_biyoloji"; continue }
+                lowered == "geometri" || lowered.startsWith("geometri s d y") -> { current = "tyt_geo"; continue }
+                lowered == "fizik" || lowered.startsWith("fizik s d y") -> { current = "tyt_fizik"; continue }
+                lowered == "kimya" || lowered.startsWith("kimya s d y") -> { current = "tyt_kimya"; continue }
+                lowered == "biyoloji" || lowered.startsWith("biyoloji s d y") -> { current = "tyt_biyoloji"; continue }
             }
             if (current.isEmpty()) continue
             val m = topicNumbers.find(line) ?: continue
