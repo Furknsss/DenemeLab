@@ -2,7 +2,7 @@ name: DenemeLab Android 16 Login and OCR Emulator
 
 on:
   push:
-    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015]
+    branches: [fix/report-import-ocr-v014, fix/google-login-android16-fallback-v015, fix/report-coverage-table-v016]
   workflow_dispatch:
 
 permissions:

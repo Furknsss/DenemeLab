@@ -68,6 +68,7 @@ object DetailedReportReconciliation {
         var suspectNumericLines = 0
         var recoveredWithoutPercent = 0
         var detectedRows = 0
+        var blankStyleColumns = 0
         for (row in rightRows) {
             val trimmed = row.trim()
             val columns = finalColumns.find(trimmed)
@@ -96,15 +97,31 @@ object DetailedReportReconciliation {
             }
             val expected = (100.0 * d / s).roundToInt()
             if (s !in 1..60 || d !in 0..s || y !in 0..s ||
-                d + y > s || pct !in 0..100 || abs(pct-expected) > 2) {
+                d + y > s || pct !in 0..100) {
+                suspectNumericLines++
+                continue
+            }
+            val isPercent = abs(pct - expected) <= 2
+            val isBlankCount = pct == s - d - y
+            if (!isPercent && !isBlankCount) {
                 suspectNumericLines++
                 continue
             }
             detectedRows++
-            validatedRight += trimmed.removeSuffix("%")
+            if (!isPercent && isBlankCount) {
+                blankStyleColumns++
+                // Canonicalise the last numeric column into the percentage
+                // expected by ReportTableParser, without guessing D/Y/B.
+                validatedRight += trimmed.substring(0, columns.range.first).trim() +
+                    " $s $d $y $expected"
+            } else {
+                validatedRight += trimmed.removeSuffix("%")
+            }
         }
         if (suspectNumericLines > 0)
-            warnings.add("$suspectNumericLines kazanım satırında sütunlar tutarsız; doğrulama gerekli.")
+            warnings.add("$suspectNumericLines sayısal satır tutarsız; otomatik veri olarak kabul edilmedi.")
+        if (blankStyleColumns > 0)
+            warnings.add("$blankStyleColumns konu satırı B (boş) sütunuyla geldi; yüzde yerine boş sayısı kullanıldı.")
         if (recoveredWithoutPercent > 0)
             warnings.add("$recoveredWithoutPercent kazanımın B% sütunu okunamadı; hesaplanan yüzdeyi kontrol et.")
 
@@ -134,8 +151,23 @@ object DetailedReportReconciliation {
         // Different recognition resolutions can recover different rows. Keep
         // the high resolution row first; deduplicate by lesson+topic, never by
         // lesson alone or a topic name can disappear.
-        val candidates = (right.outcomes + page.outcomes)
-            .distinctBy { TopicAnalyticsV3.identity(it.lessonKey, it.topic) }
+        val flexibleTopics = FlexibleTopicRowParser.parse(validatedRight, mergedCounts)
+        if (flexibleTopics.uncertain > 0)
+            warnings.add("Bazı konu satırlarında doğru/yanlış/boş uyuşmadı; doğrulanmadı.")
+        // Multiple OCR passes can disagree on the same printed topic.
+        // Reject contradictory readings instead of silently picking the
+        // first variant and contaminating long-term topic analytics.
+        val topicObservations = right.outcomes + page.outcomes + flexibleTopics.rows
+        val byTopic = topicObservations.groupBy {
+            TopicAnalyticsV3.identity(it.lessonKey, it.topic)
+        }
+        val conflictingTopics = byTopic.filter { (_, rows) ->
+            rows.map { Triple(it.correct, it.wrong, it.blank) }.distinct().size > 1
+        }.keys
+        if (conflictingTopics.isNotEmpty())
+            warnings.add("${conflictingTopics.size} konuda iki OCR okuması çelişti; bu satırlar doğrulanmadı.")
+        val candidates = byTopic.filterKeys { it !in conflictingTopics }
+            .values.map { it.first() }
 
         val accepted = mutableListOf<TopicOutcome>()
         var discarded = 0
@@ -190,7 +222,9 @@ object DetailedReportReconciliation {
             counts = mergedCounts, topics = topics, title = title,
             warnings = warnings.distinct(), rawText = raw,
             outcomes = accepted,
-            detectedTopicRows = maxOf(detectedRows, candidates.size),
+            // Do not label repeated numerical OCR fragments as "unknown
+            // topic rows". Only distinct identified curriculum entries count.
+            detectedTopicRows = candidates.size + conflictingTopics.size,
             validatedTopicQuestions = tagged,
             ambiguousLessons = subjectConflict
         )

@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -101,6 +105,8 @@ fun ExamEntryV3(
     var reportError by remember { mutableStateOf<String?>(null) }
     var readingReport by remember { mutableStateOf(false) }
     var reviewedReport by remember { mutableStateOf(false) }
+    var saveSubjectScoresOnly by remember { mutableStateOf(false) }
+    var showMissingByCourse by remember { mutableStateOf(false) }
     val verifiedKeys = remember { mutableStateMapOf<String, Boolean>() }
     val issueItems = remember { mutableStateListOf<ExamTopicIssue>() }
     val successItems = remember { mutableStateListOf<TopicOutcome>() }
@@ -118,6 +124,7 @@ fun ExamEntryV3(
             reportResult = null
             reportError = null
             reviewedReport = false
+            saveSubjectScoresOnly = false
             verifiedKeys.clear()
             issueItems.clear()
             successItems.clear()
@@ -162,6 +169,7 @@ fun ExamEntryV3(
         try {
             val parsed = ExamReportScanner.recognize(context, uri)
             reportResult = parsed
+            saveSubjectScoresOnly = false
             // This parser has verified TYT templates. Never silently score
             // an AYT report using the TYT 120-question model.
             if (Regex("\\bAYT\\b", RegexOption.IGNORE_CASE).containsMatchIn(parsed.rawText) &&
@@ -215,11 +223,16 @@ fun ExamEntryV3(
     val successEvidenceValid = TopicAnalyticsV3.validOutcomes(
         successItems.toList(), if (examCategory == "Genel") parts else emptyList()
     )
-    val photoReady = reportResult != null && !readingReport && reviewedReport &&
-        examType == "TYT" && examCategory == "Genel" &&
-        templates.all { verifiedKeys[it.key] == true } && successEvidenceValid
+    // A partial OCR report is NOT evidence of success in unseen questions.
+    val coverage = ReportCoverage.inspect(parts, successItems.toList())
+    val photoReady = reportResult != null && !readingReport && !preparingReport &&
+        reviewedReport && examType == "TYT" && examCategory == "Genel" &&
+        templates.all { verifiedKeys[it.key] == true } &&
+        (saveSubjectScoresOnly || (coverage.complete && successEvidenceValid))
     val saveEnabled = examName.isNotBlank() &&
-        publisherName.isNotBlank() && !isSaving && issueError == null &&
+        publisherName.isNotBlank() && !isSaving &&
+        (issueError == null ||
+            (selectedMethod == "Fotoğraf ile Ekle" && saveSubjectScoresOnly)) &&
         (if (examCategory == "Genel") generalOk else branchOk) &&
         (selectedMethod == "Manuel Ekle" || photoReady)
 
@@ -422,17 +435,29 @@ fun ExamEntryV3(
                             }
                             Spacer(Modifier.height(7.dp))
                             Text(
-                                "${successItems.size} kazanım · ${successItems.sumOf { it.questions }} sorunun D/Y/Boş ayrımı okundu",
+                                "${successItems.size} kazanım · ${coverage.observed}/${coverage.total} soru konu bazında doğrulandı",
                                 color = Black, fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            if (report.detectedTopicRows > successItems.size)
-                                Text(
-                                    "${report.detectedTopicRows - successItems.size} konu satırı belirsiz; kontrol edip gerekirse ekle.",
-                                    color = Color(0xFFB42318), fontSize = 11.sp
-                                )
-                            if (!successEvidenceValid) Text(
-                                "Konu sayıları ders toplamlarıyla uyuşmuyor. Kaydetmeden önce düzelt.",
+                            if (!coverage.complete) {
+                                Text("${coverage.missing} sorunun konu dağılımı henüz doğrulanmadı. " +
+                                        "Bu soruların doğru olduğu varsayılmaz.",
+                                    color = Color(0xFFB42318), fontSize = 12.sp)
+                                TextButton(onClick = { showMissingByCourse = !showMissingByCourse }) {
+                                    Text(if (showMissingByCourse) "Ders dökümünü gizle" else
+                                        "Eksik konu dağılımını derslere göre göster",
+                                        color = Black, fontSize = 12.sp)
+                                }
+                                if (showMissingByCourse) coverage.incompleteCourses.forEach { course ->
+                                    Text("${course.name}: ${course.observed}/${course.total} soru · " +
+                                            "${course.missing} soru doğrulanmadı" +
+                                            (if (course.valid) "" else " · Tutarsız sayılar"),
+                                        color = if (course.valid) Muted else Color(0xFFB42318),
+                                        fontSize = 11.sp)
+                                }
+                            }
+                            if (!coverage.valid || !successEvidenceValid) Text(
+                                "Konu D/Y/Boş toplamları derslerle çelişiyor. Önce düzelt.",
                                 color = Color(0xFFB42318), fontSize = 11.sp)
                             Spacer(Modifier.height(9.dp))
                             Surface(
@@ -448,8 +473,26 @@ fun ExamEntryV3(
                                 )
                             }
                             Spacer(Modifier.height(6.dp))
-                            Text("OCR sonucu kesin kabul edilmez. Konu sayıları ve dersler tutarlı olmalı.",
+                            Text("Konu sonuçları ancak bütün derslerin D/Y/Boş toplamıyla eşleşirse analizlere eklenir.",
                                 color = Muted, fontSize = 11.sp)
+                            if (!coverage.complete) {
+                                Spacer(Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = saveSubjectScoresOnly,
+                                        onCheckedChange = {
+                                            saveSubjectScoresOnly = it
+                                            reviewedReport = false
+                                        },
+                                        colors = CheckboxDefaults.colors(checkedColor = Black))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Yalnızca ders sonuçlarını kaydet",
+                                            color = Black, fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold)
+                                        Text("Eksik konu verisini analizlere ekleme; yalnızca kontrol ettiğim netleri kaydet.",
+                                            color = Muted, fontSize = 11.sp)
+                                    }
+                                }
+                            }
                         }
                         Spacer(Modifier.height(16.dp))
                     }
@@ -564,7 +607,9 @@ fun ExamEntryV3(
                             Checkbox(checked = reviewedReport,
                                 onCheckedChange = { reviewedReport = it },
                                 colors = CheckboxDefaults.colors(checkedColor = Black))
-                            Text("Belge sonuçlarını ve konu detaylarını kontrol ettim",
+                            Text(if (selectedMethod == "Fotoğraf ile Ekle" && saveSubjectScoresOnly)
+                                "Ders sonuçlarını belgeyle karşılaştırıp doğruladım"
+                                else "Belge sonuçlarını ve konu detaylarını kontrol ettim",
                                 color = Black, fontSize = 12.sp, lineHeight = 17.sp,
                                 modifier = Modifier.weight(1f))
                         }
@@ -615,11 +660,16 @@ fun ExamEntryV3(
                                 parts = if (examCategory == "Genel") parts else emptyList(),
                                 publisher = publisherName.trim(), examDate = examDate, mood = mood,
                                 difficulty = difficulty,
-                                topicIssues = issueItems.toList(),
+                                topicIssues = if (selectedMethod == "Fotoğraf ile Ekle" &&
+                                    saveSubjectScoresOnly) emptyList() else issueItems.toList(),
                                 topicOutcomes = if (selectedMethod == "Fotoğraf ile Ekle" &&
+                                    !saveSubjectScoresOnly && coverage.complete &&
                                     successEvidenceValid) successItems.toList() else emptyList(),
-                                source = if (selectedMethod == "Fotoğraf ile Ekle") "Belge OCR + kullanıcı onayı"
-                                    else "Manuel"
+                                source = when {
+                                    selectedMethod == "Manuel Ekle" -> "Manuel"
+                                    saveSubjectScoresOnly -> "Belge OCR · yalnız doğrulanan ders sonuçları"
+                                    else -> "Belge OCR + tam konu doğrulaması"
+                                }
                             )
                             onSave(ExamEntrySubmission(exam, null))
                         },
@@ -658,6 +708,7 @@ fun ExamEntryV3(
                     ))
                 }
                 reviewedReport = false
+                saveSubjectScoresOnly = false
             }
         )
     }
@@ -766,14 +817,86 @@ private fun PhotoImportPanel(
                         textAlign = TextAlign.Center)
                 } else {
                     var previewFailed by remember(photo) { mutableStateOf(false) }
+                    var showZoom by remember(photo) { mutableStateOf(false) }
                     AsyncImage(
                         model = photo,
-                        contentDescription = "Seçilen sonuç belgesi",
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                        contentDescription = "Belgeyi büyütmek için dokun",
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp)
+                            .clickable { showZoom = true },
                         contentScale = ContentScale.Fit,
                         onError = { previewFailed = true },
                         onSuccess = { previewFailed = false }
                     )
+                    TextButton(onClick = { showZoom = true }) {
+                        Text("Belgeyi büyüt ve kontrol et", color = Black, fontSize = 12.sp)
+                    }
+                    if (showZoom) {
+                        Dialog(
+                            onDismissRequest = { showZoom = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(.99f).fillMaxHeight(.94f),
+                                color = Color.White,
+                                shape = RoundedCornerShape(17.dp)
+                            ) {
+                                Column {
+                                    Row(Modifier.fillMaxWidth().padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Orijinal belge", color = Black,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.weight(1f))
+                                        IconButton(onClick = { showZoom = false }) {
+                                            Icon(Icons.Rounded.Close, "Kapat", tint = Black)
+                                        }
+                                    }
+                                    var scale by remember(photo) { mutableFloatStateOf(1f) }
+                                    var offset by remember(photo) { mutableStateOf(Offset.Zero) }
+                                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                                        AsyncImage(
+                                            model = photo,
+                                            contentDescription = "Yakınlaştırılabilir karne görseli",
+                                            modifier = Modifier.fillMaxSize()
+                                                .pointerInput(photo) {
+                                                    detectTransformGestures { _, pan, zoom, _ ->
+                                                        scale = (scale * zoom).coerceIn(1f, 6f)
+                                                        offset = if (scale > 1f)
+                                                            Offset(offset.x + pan.x, offset.y + pan.y)
+                                                        else Offset.Zero
+                                                    }
+                                                }
+                                                .graphicsLayer {
+                                                    scaleX = scale
+                                                    scaleY = scale
+                                                    translationX = offset.x
+                                                    translationY = offset.y
+                                                },
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(11.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        TextButton(onClick = {
+                                            scale = (scale - .5f).coerceAtLeast(1f)
+                                            if (scale == 1f) offset = Offset.Zero
+                                        }) { Text("−", color = Black, fontSize = 21.sp) }
+                                        Text("${(scale * 100).toInt()}%",
+                                            modifier = Modifier.align(Alignment.CenterVertically),
+                                            color = Muted)
+                                        TextButton(onClick = {
+                                            scale = (scale + .5f).coerceAtMost(6f)
+                                        }) { Text("+", color = Black, fontSize = 21.sp) }
+                                        TextButton(onClick = {
+                                            scale = 1f
+                                            offset = Offset.Zero
+                                        }) { Text("Sıfırla", color = Black) }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (previewFailed) {
                         Text("Küçük önizleme gösterilemedi; belge taraması ayrı çalışır.",
                             color = Muted, fontSize = 11.sp)

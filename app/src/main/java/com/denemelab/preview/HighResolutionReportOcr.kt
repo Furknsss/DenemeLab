@@ -43,7 +43,7 @@ import kotlin.math.roundToInt
  */
 object HighResolutionReportOcr {
     private data class Region(val name: String, val bounds: Rect)
-    private data class Line(val text: String, val y: Float)
+    private data class Line(val text: String, val y: Float, val x: Float)
 
     private data class Fragments(
         val overview: String,
@@ -69,12 +69,35 @@ object HighResolutionReportOcr {
                 val allRight = mutableListOf<String>()
                 val warnings = mutableListOf<String>()
                 var scannedPages = 0
+                var nativeResult: ReportResult? = null
                 if (ReportDocumentSource.isPdf(staged)) {
+                    // A real PDF text layer is preferable to OCR of tiny
+                    // rasterized characters. No network or cloud model needed.
+                    val native = runCatching {
+                        ReportPdfTextLayer.extract(context, staged)
+                    }.getOrNull()
+                    if (native != null && native.pagesWithText > 0) {
+                        nativeResult = DetailedReportReconciliation.reconcile(
+                            native.text, native.text.lines(), native.text.lines()
+                        )
+                        val nativeParts = ExamStructure.tytDetailed.map { lesson ->
+                            val pair = nativeResult.counts[lesson.key] ?: (0 to 0)
+                            SubjectScore(lesson.key, lesson.title,
+                                lesson.questions, pair.first, pair.second)
+                        }
+                        if (nativeResult.foundCount == 10 &&
+                            ReportCoverage.inspect(nativeParts, nativeResult.outcomes).complete) {
+                            return@withContext nativeResult.copy(warnings =
+                                (nativeResult.warnings +
+                                    "PDF'nin seçilebilir metni doğrudan okundu. Kaydetmeden önce kontrol et.")
+                                    .distinct())
+                        }
+                    }
                     try {
                         ParcelFileDescriptor.open(staged, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
                             PdfRenderer(fd).use { pdf ->
                                 if (pdf.pageCount == 0) throw IOException("PDF'de sayfa yok.")
-                                val limit = min(pdf.pageCount, 4)
+                                val limit = min(pdf.pageCount, 12)
                                 for (pageNumber in 0 until limit) {
                                     pdf.openPage(pageNumber).use { page ->
                                         val image = renderPdfPage(page)
@@ -97,8 +120,14 @@ object HighResolutionReportOcr {
                                     )
                                     // Keep scanning when page 1 has only a summary
                                     // and the following pages may have topic rows.
-                                    if (candidate.foundCount >= 10 &&
-                                        candidate.validatedTopicQuestions >= 80) break
+                                    val candidateParts = ExamStructure.tytDetailed.map { lesson ->
+                                        val totals = candidate.counts[lesson.key] ?: (0 to 0)
+                                        SubjectScore(lesson.key, lesson.title, lesson.questions,
+                                            totals.first, totals.second)
+                                    }
+                                    if (candidate.foundCount == 10 &&
+                                        ReportCoverage.inspect(candidateParts, candidate.outcomes).complete)
+                                        break
                                 }
                                 if (scannedPages < pdf.pageCount) {
                                     warnings.add(
@@ -130,17 +159,21 @@ object HighResolutionReportOcr {
                         image.recycle()
                     }
                 }
-                val result = DetailedReportReconciliation.reconcile(
+                val rasterResult = DetailedReportReconciliation.reconcile(
                     overviews.joinToString("\n"), allLeft, allRight
                 )
+                val native = nativeResult
+                val result = if (native == null) rasterResult
+                    else ReportEvidenceMerger.merge(rasterResult, native)
                 val moreWarnings = if (result.foundCount == 0) {
                     listOf(
                         "Bu karnenin ders tablosu otomatik çözümlenemedi. " +
                         "Görüntü açıldı; kaydetmeden önce ders rakamlarını elle doğrula."
                     )
                 } else emptyList()
-                result.copy(warnings =
-                    (warnings + result.warnings + moreWarnings).distinct())
+                result.copy(
+                    warnings = (warnings + result.warnings + moreWarnings).distinct()
+                )
             } finally {
                 recognizer.close()
                 if (isTemporary) staged.delete()
@@ -153,7 +186,7 @@ object HighResolutionReportOcr {
         bitmap: Bitmap
     ): Fragments {
         val warnings = mutableListOf<String>()
-        val preview = resizedPreview(bitmap, 1850)
+        val preview = resizedPreview(bitmap, 2400)
         val overview = try {
             read(recognizer, preview).text
         } catch (cancelled: CancellationException) {
@@ -193,9 +226,13 @@ object HighResolutionReportOcr {
                 val enhanced = enhanceDocument(scaled)
                 try {
                     val text = read(recognizer, enhanced)
-                    val lines = spatialRows(text, box, scale)
-                    if (tile.name.startsWith("left")) left.addAll(lines)
-                    else right.addAll(lines)
+                    // Even "full-width" fallback crops must never concatenate
+                    // left summary cells with right curriculum cells on the
+                    // same horizontal line: keep their page-column identities.
+                    val lines = spatialRows(text, box, scale, width)
+                    val cut = width * 0.49f
+                    left.addAll(lines.filter { it.x < cut })
+                    right.addAll(lines.filter { it.x >= cut })
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
@@ -219,7 +256,13 @@ object HighResolutionReportOcr {
         )
         // Publisher layouts vary: a 3D-style half-page split cannot read
         // a full-width table or a course list near the foot of the page.
-        if (initial.foundCount < 10 || initial.validatedTopicQuestions < 6) {
+        val initialParts = ExamStructure.tytDetailed.map { lesson ->
+            val pair = initial.counts[lesson.key] ?: (0 to 0)
+            SubjectScore(lesson.key, lesson.title, lesson.questions,
+                pair.first, pair.second)
+        }
+        if (initial.foundCount < 10 ||
+            !ReportCoverage.inspect(initialParts, initial.outcomes).complete) {
             scan(listOf(
                 region("left-footer",0f,.67f,.55f,1f),
                 region("right-overview",0f,0f,1f,.40f),
@@ -254,8 +297,8 @@ object HighResolutionReportOcr {
      */
     @Throws(IOException::class)
     private fun renderPdfPage(page: PdfRenderer.Page): Bitmap {
-        val scale = min(4.0f,
-            min(3000f / page.width, 4200f / page.height))
+        val scale = min(5.0f,
+            min(3400f / page.width, 4800f / page.height))
         val width = max(1, (page.width * scale).roundToInt())
         val height = max(1, (page.height * scale).roundToInt())
         val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -351,8 +394,14 @@ object HighResolutionReportOcr {
         return result
     }
 
-    /** Uses actual word bounds, not a fixed page-width Y tolerance. */
-    private fun spatialRows(text: Text, box: Rect, scale: Float): List<Line> {
+    /**
+     * OCR word coordinates are in the rendered page's pixel space. Large
+     * overlaps are intentional, but must not fuse two distinct rows simply
+     * because they happen to share a y coordinate.
+     */
+    private fun spatialRows(
+        text: Text, box: Rect, scale: Float, pageWidth: Int
+    ): List<Line> {
         data class Word(val text: String, val x: Float, val y: Float, val height: Float)
         val words = text.textBlocks.flatMap { it.lines }.flatMap { line ->
             line.elements.mapNotNull { element ->
@@ -366,37 +415,54 @@ object HighResolutionReportOcr {
         if (words.isEmpty()) return emptyList()
         val heights = words.map { it.height }.filter { it > 0 }.sorted()
         val median = heights[heights.size / 2]
-        val tolerance = (median * 0.40f).coerceIn(1.6f, 4.2f)
-        val groups = mutableListOf<MutableList<Word>>()
-        words.sortedBy { it.y }.forEach { word ->
-            val current = groups.lastOrNull()
-            val average = current?.map { it.y }?.average()?.toFloat()
-            if (current != null && average != null && abs(average-word.y) <= tolerance)
-                current.add(word)
-            else groups.add(mutableListOf(word))
-        }
-        return groups.map { group ->
-            Line(
-                group.sortedBy { it.x }.joinToString(" ") { it.text }.trim(),
-                group.map { it.y }.average().toFloat()
-            )
-        }.filter { it.text.isNotBlank() }
-    }
-
-    /** OCR strips overlap: never count the same printed topic twice. */
-    private fun deduplicate(lines: List<Line>): List<Line> {
-        val sorted = lines.sortedBy { it.y }
-        val result = mutableListOf<Line>()
-        for (candidate in sorted) {
-            val index = result.indexOfLast { abs(it.y-candidate.y) < 4f }
-            if (index < 0) result.add(candidate)
-            else {
-                // Prefer the result that includes more actual visible text.
-                // This also recovers the number columns split across tiles.
-                val old = result[index]
-                if (candidate.text.length > old.text.length) result[index] = candidate
+        val tolerance = (median * 0.45f).coerceIn(0.8f, 6.5f)
+        val wide = box.width() > pageWidth * 0.57f
+        val fragments = if (wide) words.groupBy {
+            if (it.x < pageWidth * 0.49f) 0 else 1
+        }.values.toList() else listOf(words)
+        val results = mutableListOf<Line>()
+        for (column in fragments) {
+            val groups = mutableListOf<MutableList<Word>>()
+            column.sortedBy { it.y }.forEach { word ->
+                val last = groups.lastOrNull()
+                val averageY = last?.map { it.y }?.average()?.toFloat()
+                if (last != null && averageY != null &&
+                    abs(averageY - word.y) <= tolerance) last.add(word)
+                else groups.add(mutableListOf(word))
+            }
+            groups.forEach { group ->
+                val joined = group.sortedBy { it.x }.joinToString(" ") { it.text }.trim()
+                if (joined.isNotBlank()) results.add(Line(
+                    joined,
+                    group.map { it.y }.average().toFloat(),
+                    group.minOf { it.x }
+                ))
             }
         }
-        return result.sortedBy { it.y }
+        return results.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })
+    }
+
+    /** Remove the same printed row across overlapping OCR tiles, not different
+     * topic rows that happen to have close y coordinates (tiny text = 5px).
+     * Keep competing OCR variants with different labels for later checking.
+     */
+    private fun deduplicate(lines: List<Line>): List<Line> {
+        val result = mutableListOf<Line>()
+        for (candidate in lines.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })) {
+            val candidateKey = TopicAnalyticsV3.normalize(candidate.text)
+            val matchAt = result.indexOfLast { older ->
+                val priorKey = TopicAnalyticsV3.normalize(older.text)
+                val common = min(15, min(candidateKey.length, priorKey.length))
+                common >= 6 && candidateKey.take(common) == priorKey.take(common) &&
+                    abs(older.y - candidate.y) <= 2.0f &&
+                    abs(older.x - candidate.x) <= 22f
+            }
+            if (matchAt < 0) result.add(candidate) else {
+                val old = result[matchAt]
+                // More recognized columns generally yield more characters.
+                if (candidate.text.length > old.text.length) result[matchAt] = candidate
+            }
+        }
+        return result.sortedWith(compareBy<Line> { it.y }.thenBy { it.x })
     }
 }

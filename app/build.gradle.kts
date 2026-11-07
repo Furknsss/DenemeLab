@@ -32,8 +32,8 @@ android {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.15.0"
+        versionCode = 19
+        versionName = "0.16.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -51,6 +51,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.coil.compose)
     implementation(libs.mlkit.text.recognition)
+    // Read searchable PDF text directly before falling back to image OCR.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
