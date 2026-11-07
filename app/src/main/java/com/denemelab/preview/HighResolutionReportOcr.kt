@@ -89,7 +89,44 @@ object HighResolutionReportOcr {
                         val byText = DetailedReportReconciliation.reconcile(
                             native.text, native.text.lines(), native.text.lines()
                         )
-                        val selectedNative = listOf(byPosition,byText).maxWith(
+                        // For native PDF text, the right-hand column is
+                        // authoritative printed rows, not fuzzy OCR evidence.
+                        // The old merged parse rejected whole lessons even
+                        // though PDFBox extracted every original row.
+                        val verifiedCourseScores = LinkedHashMap(byText.counts)
+                        verifiedCourseScores.putAll(byPosition.counts)
+                        val directRows = NativePdfTopicRowsV22.parse(
+                            native.rightRows, verifiedCourseScores
+                        )
+                        val directTopics = directRows.outcomes.flatMap { row ->
+                            listOfNotNull(
+                                row.wrong.takeIf { it > 0 }?.let {
+                                    ExamTopicIssue(row.lessonKey,row.lessonName,
+                                        row.topic,"Yanlış",it,"Belirtilmedi","PDF metin")
+                                },
+                                row.blank.takeIf { it > 0 }?.let {
+                                    ExamTopicIssue(row.lessonKey,row.lessonName,
+                                        row.topic,"Boş",it,"Belirtilmedi","PDF metin")
+                                }
+                            )
+                        }
+                        val directReport = ReportResult(
+                            counts=verifiedCourseScores,
+                            topics=directTopics,
+                            title=byPosition.title.ifBlank { byText.title },
+                            warnings=if (directRows.unresolvedRows > 0) listOf(
+                                "${directRows.unresolvedRows} PDF kazanım satırı "+
+                                    "ders toplamıyla doğrulanamadı."
+                            ) else emptyList(),
+                            rawText=native.text,
+                            outcomes=directRows.outcomes,
+                            detectedTopicRows=directRows.recognizedRows,
+                            validatedTopicQuestions=directRows.outcomes.sumOf { it.questions },
+                            ambiguousLessons=byPosition.ambiguousLessons.intersect(
+                                verifiedCourseScores.keys),
+                            derivedLessons=byPosition.derivedLessons
+                        )
+                        val selectedNative = listOf(byPosition,byText,directReport).maxWith(
                             compareBy<ReportResult> { it.foundCount }
                                 .thenBy { it.validatedTopicQuestions }
                         )
