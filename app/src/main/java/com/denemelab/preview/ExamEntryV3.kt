@@ -228,7 +228,7 @@ fun ExamEntryV3(
     val photoReady = reportResult != null && !readingReport && !preparingReport &&
         reviewedReport && examType == "TYT" && examCategory == "Genel" &&
         templates.all { verifiedKeys[it.key] == true } &&
-        (saveSubjectScoresOnly || (coverage.complete && successEvidenceValid))
+        (saveSubjectScoresOnly || (coverage.valid && successEvidenceValid))
     val saveEnabled = examName.isNotBlank() &&
         publisherName.isNotBlank() && !isSaving &&
         (issueError == null ||
@@ -430,6 +430,21 @@ fun ExamEntryV3(
                         reportResult?.let { report ->
                             Text("${report.foundCount}/10 ders algılandı",
                                 color = Black, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            val missingCourseNames = templates.filter { it.key !in report.counts }
+                                .map { it.title }
+                            if (missingCourseNames.isNotEmpty()) {
+                                Text("Okunamayan dersler: " + missingCourseNames.joinToString(", ") +
+                                    ". Bu dersin doğru/yanlış/boş değerlerini belgede kontrol et.",
+                                    color = Color(0xFFB42318), fontSize = 11.sp)
+                            }
+                            val conflictedCourseNames = templates.filter {
+                                it.key in report.ambiguousLessons }.map { it.title }
+                            if (conflictedCourseNames.isNotEmpty()) {
+                                Text("Çelişkili OCR satırları: " +
+                                    conflictedCourseNames.joinToString(", ") +
+                                    ". Belgeye bakmadan otomatik doğru sayılmaz.",
+                                    color = Color(0xFFB42318), fontSize = 11.sp)
+                            }
                             report.warnings.forEach {
                                 Text(it, color = Muted, fontSize = 11.sp)
                             }
@@ -476,6 +491,11 @@ fun ExamEntryV3(
                             Text("Konu sonuçları ancak bütün derslerin D/Y/Boş toplamıyla eşleşirse analizlere eklenir.",
                                 color = Muted, fontSize = 11.sp)
                             if (!coverage.complete) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Eksik konu satırlarını tahmin etmiyoruz. Doğruladığın konu kayıtlarıyla " +
+                                        "kaydettiğinde, ölçülmeyen soru sayısı Analiz ekranında gösterilir.",
+                                    color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                                 Spacer(Modifier.height(8.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Checkbox(checked = saveSubjectScoresOnly,
@@ -609,6 +629,8 @@ fun ExamEntryV3(
                                 colors = CheckboxDefaults.colors(checkedColor = Black))
                             Text(if (selectedMethod == "Fotoğraf ile Ekle" && saveSubjectScoresOnly)
                                 "Ders sonuçlarını belgeyle karşılaştırıp doğruladım"
+                                else if (!coverage.complete)
+                                    "Okunan konu satırlarını doğruladım; kalanlar ölçülmedi"
                                 else "Belge sonuçlarını ve konu detaylarını kontrol ettim",
                                 color = Black, fontSize = 12.sp, lineHeight = 17.sp,
                                 modifier = Modifier.weight(1f))
@@ -663,11 +685,12 @@ fun ExamEntryV3(
                                 topicIssues = if (selectedMethod == "Fotoğraf ile Ekle" &&
                                     saveSubjectScoresOnly) emptyList() else issueItems.toList(),
                                 topicOutcomes = if (selectedMethod == "Fotoğraf ile Ekle" &&
-                                    !saveSubjectScoresOnly && coverage.complete &&
+                                    !saveSubjectScoresOnly && coverage.valid &&
                                     successEvidenceValid) successItems.toList() else emptyList(),
                                 source = when {
                                     selectedMethod == "Manuel Ekle" -> "Manuel"
                                     saveSubjectScoresOnly -> "Belge OCR · yalnız doğrulanan ders sonuçları"
+                                    !coverage.complete -> "Belge OCR + kısmi doğrulanmış konu"
                                     else -> "Belge OCR + tam konu doğrulaması"
                                 }
                             )
