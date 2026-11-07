@@ -45,15 +45,17 @@ private val V18Gold = Color(0xFFB18232)
  * Ilerlemem), no recommendations, and no made-up topic completeness.
  */
 @Composable
-fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot) {
+fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot, allExams: List<ExamRecord>) {
     val history = snapshot.history
     val recent = history.takeLast(5)
     val repeated = remember(history) { PremiumInsightsV18.repeatedWrongTopics(history) }
-    var window by remember(snapshot.scope) { mutableStateOf(5) }
+    var window by remember(snapshot.scope) { mutableStateOf(1) }
     val losses = remember(history, window) { PremiumInsightsV18.losses(history, window) }
     val gains = remember(history, window) { PremiumInsightsV18.gains(history, window) }
     val lessons = remember(history) { PremiumInsightsV18.lessons(history) }
-    val mood = remember(history) { PremiumInsightsV18.mood(history) }
+    val mood = remember(allExams) {
+        PremiumInsightsV18.mood(allExams.filter { it.category == "Genel" })
+    }
     var expandedLesson by remember(snapshot.scope) { mutableStateOf<String?>(null) }
     var lessonTab by remember(snapshot.scope) { mutableStateOf(0) }
 
@@ -138,8 +140,8 @@ fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot) {
             modifier = Modifier.fillMaxWidth()) {
             V18Pill(if (window == 1) "Son Deneme ✓" else "Son Deneme",
                 window == 1, Modifier.weight(1f)) { window = 1 }
-            V18Pill(if (window == 5) "Son 5 Deneme ✓" else "Son 5 Deneme",
-                window == 5, Modifier.weight(1f)) { window = 5 }
+            V18Pill(if (window == Int.MAX_VALUE) "Tüm Zamanlar ✓" else "Tüm Zamanlar",
+                window == Int.MAX_VALUE, Modifier.weight(1f)) { window = Int.MAX_VALUE }
         }
 
         V18TopicCard("En Çok Net Kaybettirenler", losses.take(5), negative = true)
