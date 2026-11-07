@@ -74,6 +74,42 @@ object FirebaseCloudBackup {
             ?: throw IOException("Google hesabı Firebase'e bağlanamadı.")
     }
 
+    suspend fun signInWithEmail(context: Context, email: String, password: String): String {
+        if (!configured(context)) throw IOException("Firebase yapılandırması eksik.")
+        val cleanEmail = email.trim()
+        require(cleanEmail.isNotBlank() && password.isNotBlank()) { "E-posta ve şifre gerekli." }
+        val result = FirebaseAuth.getInstance()
+            .signInWithEmailAndPassword(cleanEmail, password).awaitTask()
+        return result.user?.uid ?: throw IOException("Oturum açılamadı.")
+    }
+
+    suspend fun registerWithEmail(context: Context, email: String, password: String, displayName: String = ""): String {
+        if (!configured(context)) throw IOException("Firebase yapılandırması eksik.")
+        val cleanEmail = email.trim()
+        require(cleanEmail.isNotBlank() && password.length >= 8) {
+            "Geçerli bir e-posta ve en az 8 karakterlik şifre gerekli."
+        }
+        val result = FirebaseAuth.getInstance()
+            .createUserWithEmailAndPassword(cleanEmail, password).awaitTask()
+        val user = result.user ?: throw IOException("Kayıt oluşturulamadı.")
+        if (displayName.isNotBlank()) {
+            val changes = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                .setDisplayName(displayName.trim()).build()
+            user.updateProfile(changes).awaitTask()
+        }
+        return user.uid
+    }
+
+    suspend fun sendPasswordReset(context: Context, email: String) {
+        if (!configured(context)) throw IOException("Firebase yapılandırması eksik.")
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches())
+            throw IllegalArgumentException("Geçerli bir e-posta gir.")
+        FirebaseAuth.getInstance().sendPasswordResetEmail(email.trim()).awaitTask()
+    }
+
+    fun accountUid(context: Context): String? =
+        if (configured(context)) FirebaseAuth.getInstance().currentUser?.uid else null
+
     fun signOut(context: Context) {
         if (configured(context)) FirebaseAuth.getInstance().signOut()
     }
