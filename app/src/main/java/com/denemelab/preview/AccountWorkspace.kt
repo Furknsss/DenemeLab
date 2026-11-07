@@ -91,6 +91,16 @@ object AccountWorkspace {
         DenemeLabBackup.restore(context, source)
     }
 
+    private fun fillMissingName(context: Context) {
+        val userName = FirebaseAuth.getInstance().currentUser?.displayName
+            ?.trim()?.split(Regex("\\s+"))?.firstOrNull().orEmpty()
+        if (userName.isBlank()) return
+        val profile = LocalData.loadProfile(context)
+        if (profile.firstName.isBlank()) {
+            LocalData.saveProfile(context, profile.copy(firstName = userName))
+        }
+    }
+
     private fun assign(context: Context, uid: String) {
         if (!guard(context).edit().putString("ownerUid", uid).commit())
             throw IOException("Hesap sahipliği kaydedilemedi.")
@@ -116,6 +126,7 @@ object AccountWorkspace {
                 } else FirebaseCloudBackup.upload(context)
             }
             FirebaseCloudBackup.setAuto(context, true)
+            fillMissingName(context)
             return@withContext WorkspaceResult(true)
         }
 
@@ -134,6 +145,7 @@ object AccountWorkspace {
             checkSignedIn(uid)
             assign(context, uid)
             FirebaseCloudBackup.setAuto(context, true)
+            fillMissingName(context)
             return@withContext WorkspaceResult(true,
                 message = if (localExists) "Eski kayıtların buluta yedeklendi."
                     else "Hesabın hazır.")
@@ -145,6 +157,7 @@ object AccountWorkspace {
             checkSignedIn(uid)
             assign(context, uid)
             FirebaseCloudBackup.setAuto(context, false)
+            fillMissingName(context)
             return@withContext WorkspaceResult(true,
                 message = "Cihaz kayıtların korundu. Bulut yedeği değiştirilmedi.")
         }
@@ -173,6 +186,7 @@ object AccountWorkspace {
         // intact until the student checks them in cloud settings.
         val needsReconcile = cached?.isFile == true && cloud != null
         FirebaseCloudBackup.setAuto(context, !needsReconcile)
+        fillMissingName(context)
         WorkspaceResult(true, message = if (needsReconcile)
             "Bu cihazdaki hesap verilerin açıldı. Bulut sürümünü ayarlardan incele."
             else if (cloud != null) "Bulut kayıtların hesabına geri yüklendi."
