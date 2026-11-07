@@ -77,8 +77,21 @@ object HighResolutionReportOcr {
                         ReportPdfTextLayer.extract(context, staged)
                     }.getOrNull()
                     if (native != null && native.pagesWithText > 0) {
-                        nativeResult = DetailedReportReconciliation.reconcile(
+                        // When the PDF contains selectable text, group
+                        // glyphs by their original left/right column and
+                        // baseline. A single full-page PDFTextStripper output
+                        // can interleave the two independent tables.
+                        val byPosition = DetailedReportReconciliation.reconcile(
+                            native.text,
+                            native.leftRows.ifEmpty { native.text.lines() },
+                            native.rightRows.ifEmpty { native.text.lines() }
+                        )
+                        val byText = DetailedReportReconciliation.reconcile(
                             native.text, native.text.lines(), native.text.lines()
+                        )
+                        nativeResult = listOf(byPosition,byText).maxWithOrNull(
+                            compareBy<ReportResult> { it.foundCount }
+                                .thenBy { it.validatedTopicQuestions }
                         )
                         val nativeParts = ExamStructure.tytDetailed.map { lesson ->
                             val pair = nativeResult.counts[lesson.key] ?: (0 to 0)
