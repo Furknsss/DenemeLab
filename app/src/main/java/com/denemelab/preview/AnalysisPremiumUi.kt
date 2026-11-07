@@ -72,9 +72,12 @@ fun AnalysisDashboard(
     val snapshot = scope?.let { AnalysisEngine.analyze(exams, it) }
     val last = snapshot?.last
 
+    val dashboardScroll = rememberScrollState()
+    LaunchedEffect(category, selection) { dashboardScroll.scrollTo(0) }
+
     Column(
         modifier = Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(dashboardScroll)
             .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 124.dp)
     ) {
         Text(
@@ -85,7 +88,7 @@ fun AnalysisDashboard(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Son denemen. Tek bakışta.",
+            "Netlerin, derslerin ve eksik konuların.",
             color = AnalysisSecondary, fontSize = 13.sp
         )
         Spacer(Modifier.height(24.dp))
@@ -209,14 +212,11 @@ fun AnalysisDashboard(
             }
         }
 
-        // Only one secondary card remains: it turns an observed weakness
-        // into a verifiable learning action, without reinstating clutter.
-        AnalysisFocusPanel(
-            snapshot = snapshot,
-            reduceMotion = reduceMotion,
-            onAddExam = onAdd
-        )
-        // No repeated donuts, charts, simulations or long statistical stacks.
+        // Show the student's measured gaps, not coaching or work plans.
+        // The subtest and topic layers remain truthful when an OCR report
+        // has only partial curriculum coverage.
+        Spacer(Modifier.height(17.dp))
+        AnalysisEvidencePanel(snapshot)
     }
 }
 
