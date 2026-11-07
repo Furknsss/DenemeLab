@@ -352,9 +352,11 @@ object HighResolutionReportOcr {
                 val fallback = runCatching {
                     ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) {
                             decoder, info, _ ->
-                        val maximum = max(info.size.width, info.size.height)
-                        var sample = 1
-                        while (maximum / sample > 4800) sample *= 2
+                        // Long report screenshots must keep the tiny
+                        // printed digits unless the actual pixel-memory
+                        // budget requires resampling.
+                        val sample = ReportImageSampling.sampleSize(
+                            info.size.width, info.size.height)
                         decoder.setTargetSampleSize(sample)
                         decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
                     }
@@ -367,8 +369,8 @@ object HighResolutionReportOcr {
             )
         }
         val options = BitmapFactory.Options()
-        var sample = 1
-        while (max(bounds.outWidth, bounds.outHeight) / sample > 4800) sample *= 2
+        val sample = ReportImageSampling.sampleSize(
+            bounds.outWidth, bounds.outHeight)
         options.inSampleSize = sample
         options.inPreferredConfig = Bitmap.Config.ARGB_8888
         val source = BitmapFactory.decodeFile(path, options)
