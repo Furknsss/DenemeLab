@@ -40,8 +40,11 @@ fun AnalysisEvidencePanel(snapshot: AnalysisSnapshot) {
     val lessonDetails = lastDetailed?.let(AnalysisEvidence::perLesson).orEmpty()
     var selectedLesson by remember(snapshot.scope) { mutableStateOf("Tümü") }
     var showAllTopics by remember(snapshot.scope) { mutableStateOf(false) }
-    val selectedTopics = topics.filter { (selectedLesson == "Tümü" ||
-        it.lessonName == selectedLesson) && it.wrong + it.blank > 0 }
+    var onlyWeakTopics by remember(snapshot.scope) { mutableStateOf(true) }
+    val selectedTopics = topics.filter {
+        (selectedLesson == "Tümü" || it.lessonName == selectedLesson) &&
+            (!onlyWeakTopics || it.wrong + it.blank > 0)
+    }
     val visibleTopics = if (showAllTopics) selectedTopics else selectedTopics.take(12)
 
     Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
@@ -193,7 +196,24 @@ fun AnalysisEvidencePanel(snapshot: AnalysisSnapshot) {
         }
 
         EvidenceCard {
-            EvidenceHeading("Eksik konular", "Son ${recent.size} karşılaştırılabilir denemede görülenler")
+            EvidenceHeading("Konu sonuçları", "Son ${recent.size} karşılaştırılabilir denemede görülenler")
+            Spacer(Modifier.height(9.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(shape=RoundedCornerShape(11.dp),
+                    color=if (onlyWeakTopics) DetailInk else DetailPale,
+                    onClick={ onlyWeakTopics=true; showAllTopics=false }) {
+                    Text("Eksik konular", Modifier.padding(horizontal=12.dp, vertical=9.dp),
+                        fontSize=11.sp,
+                        color=if (onlyWeakTopics) Color.White else DetailInk)
+                }
+                Surface(shape=RoundedCornerShape(11.dp),
+                    color=if (!onlyWeakTopics) DetailInk else DetailPale,
+                    onClick={ onlyWeakTopics=false; showAllTopics=false }) {
+                    Text("Tüm ölçülen konular", Modifier.padding(horizontal=12.dp, vertical=9.dp),
+                        fontSize=11.sp,
+                        color=if (!onlyWeakTopics) Color.White else DetailInk)
+                }
+            }
             Spacer(Modifier.height(6.dp))
             Text("Yanlış ve boş sayıları yalnızca kaydedilmiş konu satırlarından veya " +
                 "öğrencinin etiketlediği hatalardan gelir. Ölçülmeyen konular listelenmez.",
@@ -223,11 +243,12 @@ fun AnalysisEvidencePanel(snapshot: AnalysisSnapshot) {
                         }
                 }
                 Spacer(Modifier.height(10.dp))
-                val deficitRows = visibleTopics.filter { it.wrong + it.blank > 0 }
-                if (deficitRows.isEmpty()) {
-                    Text("Seçilen derste kayıtlı konu yanlışı veya boşu yok.",
+                if (visibleTopics.isEmpty()) {
+                    Text(
+                        if (onlyWeakTopics) "Seçilen derste kaydedilmiş yanlış veya boş konu yok."
+                        else "Seçilen derste konu düzeyinde ölçüm yok.",
                         color = DetailMuted, fontSize = 12.sp)
-                } else deficitRows.forEachIndexed { index, topic ->
+                } else visibleTopics.forEachIndexed { index, topic ->
                     if (index != 0) HorizontalDivider(color = DetailLine)
                     Column(Modifier.fillMaxWidth().padding(vertical=11.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,20 +256,21 @@ fun AnalysisEvidencePanel(snapshot: AnalysisSnapshot) {
                                 fontSize = 12.sp, color = DetailInk,
                                 fontWeight = FontWeight.SemiBold)
                             Text("${topic.wrong} Y · ${topic.blank} Boş",
-                                fontSize = 11.sp, color = DetailWarning)
+                                fontSize = 11.sp, color =
+                                    if (topic.wrong + topic.blank > 0) DetailWarning else DetailMuted)
                         }
                         Spacer(Modifier.height(4.dp))
-                        Text("${topic.lessonName} · ${topic.examsSeen} denemede ölçüldü · " +
-                            topic.source,
+                        Text("${topic.lessonName} · ${topic.examsSeen} deneme · " +
+                            (if (topic.source == "Konu satırları") "${topic.correct} doğru · " else
+                                "Doğru sayısı ölçülmedi · ") + topic.source,
                             color = DetailMuted, fontSize = 10.sp)
                     }
                 }
-                val deficitsCount = selectedTopics.count { it.wrong + it.blank > 0 }
-                if (deficitsCount > 12 && !showAllTopics) {
+                if (selectedTopics.size > 12 && !showAllTopics) {
                     Spacer(Modifier.height(9.dp))
                     Surface(shape=RoundedCornerShape(12.dp), color=DetailPale,
                         onClick={showAllTopics=true}, modifier=Modifier.fillMaxWidth()) {
-                        Text("Diğer ${deficitsCount - 12} konu kaydını göster",
+                        Text("Diğer ${selectedTopics.size - 12} konu kaydını göster",
                             modifier=Modifier.padding(13.dp),
                             fontSize=12.sp, color=DetailInk)
                     }
