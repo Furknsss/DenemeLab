@@ -61,7 +61,11 @@ fun HomeOverviewV19(
                 (it.examDate == current.examDate && it.createdAt < current.createdAt)) }
             .maxWithOrNull(compareBy<ExamRecord> { it.examDate }.thenBy { it.createdAt })
     }
-    val name = profile.firstName.trim().ifBlank { "Öğrenci" }
+    val name = profile.firstName.trim().ifBlank {
+        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName
+            ?.trim()?.split(Regex("\\s+"))?.firstOrNull().orEmpty()
+                .ifBlank { "Öğrenci" }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
