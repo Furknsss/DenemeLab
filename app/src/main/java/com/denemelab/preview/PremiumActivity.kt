@@ -367,11 +367,15 @@ private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modif
                     onClick = { onSelect(index) },
                     modifier = Modifier.size(dimension).semantics { contentDescription = entry.title },
                     shape = CircleShape,
-                    color = if (active) Ink else Color.White
+                    color = if (active) {
+                        if (selected == 2) V23Navy else Ink
+                    } else Color.White
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(entry.icon, contentDescription = entry.title,
-                            tint = if (active) Color.White else Grey,
+                            tint = if (active) {
+                                if (selected == 2) V23Mint else Color.White
+                            } else Grey,
                             modifier = Modifier.size(if (active) 26.dp else 23.dp))
                     }
                 }
