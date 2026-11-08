@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -30,11 +31,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val AnalysisInk = Color(0xFF111111)
-private val AnalysisSecondary = Color(0xFF747474)
+private val AnalysisInk = V23Navy
+private val AnalysisSecondary = V23Muted
 private val AnalysisSurface = Color.White
-private val AnalysisSoft = Color(0xFFF5F5F5)
-private val AnalysisLine = Color(0xFFEAEAEA)
+private val AnalysisSoft = Color(0xFFF0F4F6)
+private val AnalysisLine = V23Border
 
 /**
  * Minimal analysis, deliberately reduced to one meaningful result.
@@ -77,21 +78,16 @@ fun AnalysisDashboard(
 
     Column(
         modifier = Modifier.fillMaxSize()
+            .background(V23Background)
             .verticalScroll(dashboardScroll)
-            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 124.dp)
+            .padding(start = 18.dp, end = 18.dp, top = 13.dp, bottom = 124.dp)
     ) {
-        Text(
-            text = "Analiz",
-            color = AnalysisInk,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Netlerin, derslerin ve eksik konuların.",
-            color = AnalysisSecondary, fontSize = 13.sp
-        )
-        Spacer(Modifier.height(24.dp))
+        Text("PERFORMANS MERKEZİ", color = V23Teal, fontSize = 10.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.15.sp)
+        Spacer(Modifier.height(4.dp))
+        Text("Analiz", color = AnalysisInk, fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -123,7 +119,7 @@ fun AnalysisDashboard(
                 }
             }
         }
-        Spacer(Modifier.height(23.dp))
+        Spacer(Modifier.height(4.dp))
 
         if (last == null || snapshot == null) {
             Surface(
@@ -159,63 +155,12 @@ fun AnalysisDashboard(
             return@Column
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            color = AnalysisSurface,
-            border = BorderStroke(1.dp, AnalysisLine)
-        ) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 19.dp, vertical = 20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "SON DENEME NETİN",
-                        color = AnalysisSecondary,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.1.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "${snapshot.questionLimit} soru",
-                        color = AnalysisSecondary, fontSize = 11.sp
-                    )
-                }
-
-                // Preserve the existing 240° speedometer gauge visual and
-                // its accessible motion preference. The value is real net.
-                LastExamNetGauge(
-                    net = last.net,
-                    questionLimit = snapshot.questionLimit,
-                    reduceMotion = reduceMotion
-                )
-
-                Text(
-                    text = last.name,
-                    color = AnalysisSecondary, fontSize = 12.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(14.dp))
-                HorizontalDivider(color = AnalysisLine)
-                Spacer(Modifier.height(17.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    ResultStat("Doğru", last.correct, Modifier.weight(1f))
-                    ResultStat("Yanlış", last.wrong, Modifier.weight(1f))
-                    ResultStat("Boş", last.blank, Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(3.dp))
-            }
-        }
+        AnalysisHeroV23(snapshot, last, reduceMotion)
 
         // Show the student's measured gaps, not coaching or work plans.
         // The subtest and topic layers remain truthful when an OCR report
         // has only partial curriculum coverage.
-        Spacer(Modifier.height(17.dp))
+        Spacer(Modifier.height(3.dp))
         PremiumAnalysisPanelV18(snapshot, exams)
     }
 }
@@ -228,7 +173,7 @@ private fun MinimalChoice(
     onClick: () -> Unit
 ) {
     val bg by animateColorAsState(
-        targetValue = if (selected) AnalysisInk else AnalysisSoft,
+        targetValue = if (selected) V23Navy else AnalysisSoft,
         animationSpec = tween(durationMillis = 180),
         label = "AnalysisChoiceBackground"
     )
@@ -237,7 +182,7 @@ private fun MinimalChoice(
         animationSpec = tween(durationMillis = 180),
         label = "AnalysisChoiceText"
     )
-    Surface(modifier = modifier, shape = CircleShape, color = bg, onClick = onClick) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(15.dp), color = bg, onClick = onClick) {
         Text(
             title, color = fg, textAlign = TextAlign.Center,
             maxLines = 1, fontWeight = FontWeight.SemiBold,
