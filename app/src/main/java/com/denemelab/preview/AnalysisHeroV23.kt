@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoGraph
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -43,6 +44,12 @@ internal fun AnalysisHeroV23(
     last: ExamRecord,
     reduceMotion: Boolean
 ) {
+    // A topic can only be shown as read when its stored D/Y/B totals
+    // reconcile with the actual subject result. Never infer unseen answers.
+    val coverage = remember(last.parts, last.topicOutcomes) {
+        if (last.parts.isEmpty()) null
+        else ReportCoverage.inspect(last.parts, last.topicOutcomes)
+    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(27.dp),
@@ -110,6 +117,36 @@ internal fun AnalysisHeroV23(
                         Color(0xFF503F4B),Modifier.weight(1f))
                     HeroStatV23("BOŞ",last.blank,Color(0xFFF2D18C),
                         Color(0xFF504A3C),Modifier.weight(1f))
+                }
+                if (coverage != null) {
+                    Spacer(Modifier.height(13.dp))
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                        Text("KONU VERİSİ", color = Color(0xFFAEC4C7),
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            letterSpacing = .8.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            if (coverage.valid) "${coverage.observed}/${coverage.total} soru"
+                            else "Kontrol gerekli",
+                            color = if (coverage.valid) V23Mint else Color(0xFFFFB0B7),
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    LinearProgressIndicator(
+                        progress = {
+                            if (coverage.valid && coverage.total > 0)
+                                (coverage.observed.toFloat()/coverage.total).coerceIn(0f,1f)
+                            else 0f
+                        },
+                        modifier = Modifier.fillMaxWidth().height(5.dp).semantics {
+                            contentDescription = if (coverage.valid)
+                                "${coverage.observed} / ${coverage.total} soru için konu verisi doğrulandı"
+                            else "Konu verisi tutarsız; kontrol gerekli"
+                        },
+                        color = if (coverage.valid) V23Mint else Color(0xFFFFB0B7),
+                        trackColor = Color(0xFF415B65)
+                    )
                 }
             }
         }

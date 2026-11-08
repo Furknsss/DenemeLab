@@ -1,0 +1,65 @@
+name: DenemeLab v0.24 Real Android Visual QA
+
+on:
+  push:
+    branches: [qa/analysis-visual-review-v024]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: denemelab-visual-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android 16
+        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+      - name: Restore Firebase configuration for test compile
+        env:
+          FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
+        run: |
+          test -n "$FIREBASE_ANDROID_CONFIG_B64"
+          umask 077
+          printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Render real Compose analysis screen at 5 scroll positions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            bash ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.denemelab.preview.AnalysisScreenshotV24Test --no-daemon --no-configuration-cache --max-workers=2
+            mkdir -p qa-screenshots
+            adb pull /sdcard/Android/data/com.denemelab.preview/files/analysis-visual/ qa-screenshots/
+            test "$(find qa-screenshots -name '*.png' | wc -l)" -eq 5
+      - name: Share real screenshot and instrumentation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenemeLab-v024-VisualQA-ActualAndroidScreens
+          path: |
+            qa-screenshots/
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          retention-days: 5
+          if-no-files-found: warn
