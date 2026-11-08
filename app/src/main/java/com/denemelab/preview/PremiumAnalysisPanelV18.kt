@@ -168,39 +168,34 @@ fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot, allExams: List<ExamRecor
         V18TopicCard("En Çok Net Kazandıranlar", gains.take(5), negative = false)
 
         V18Card {
-            V18Header("Ders Bazlı Analiz", "Son kayıtlı ders sonucu")
-            Spacer(Modifier.height(6.dp))
-            if (lessons.isEmpty()) V18Empty("Ders bazlı kayıt bulunmuyor")
-            lessons.forEachIndexed { index, result ->
-                if (index != 0) HorizontalDivider(color = V18Line)
-                Row(
-                    Modifier.fillMaxWidth().clickable {
-                        expandedLesson = if (expandedLesson == result.score.key) null
-                            else result.score.key
-                        lessonTab = 0
-                    }.padding(vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PublisherLogo(result.exam.publisher, size = 34.dp)
-                    Spacer(Modifier.width(9.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(result.score.title, color = V18Ink,
-                            fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                        Text(result.exam.name + " · " + LocalData.date(result.exam.examDate),
-                            color = V18Muted, fontSize = 10.sp,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+            V18Header("Ders Bazlı Analiz", "Ders kartına dokunarak ayrıntıyı aç")
+            Spacer(Modifier.height(13.dp))
+            if (lessons.isEmpty()) {
+                V18Empty("Ders bazlı kayıt bulunmuyor")
+            } else {
+                lessons.chunked(2).forEachIndexed { index, group ->
+                    if (index > 0) Spacer(Modifier.height(9.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        group.forEach { result ->
+                            V23LessonTile(
+                                result,
+                                expandedLesson == result.score.key,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                expandedLesson = if (expandedLesson == result.score.key)
+                                    null else result.score.key
+                                lessonTab = 0
+                            }
+                        }
+                        if (group.size == 1) Spacer(Modifier.weight(1f))
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(LocalData.net(result.score.net) + " net",
-                            color = V18Ink, fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold)
-                        Text(if (expandedLesson == result.score.key) "Kapat ▲" else "Detay ▼",
-                            color = V18Accent, fontSize = 10.sp)
+                    group.firstOrNull { it.score.key == expandedLesson }?.let { selected ->
+                        Spacer(Modifier.height(8.dp))
+                        V18LessonDetail(selected, history, lessonTab) { lessonTab = it }
                     }
-                }
-                if (expandedLesson == result.score.key) {
-                    V18LessonDetail(result, history, lessonTab) { lessonTab = it }
-                    Spacer(Modifier.height(11.dp))
                 }
             }
         }
@@ -297,6 +292,81 @@ private fun V18TopicCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun V23LessonTile(
+    result: LessonResultV18,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val key = result.score.key
+    val accent = when {
+        key.contains("turkce") -> Color(0xFF547EB2)
+        key.contains("mat") -> V18Green
+        key.contains("geo") -> Color(0xFF8476B8)
+        key.contains("fizik") -> Color(0xFFC77767)
+        key.contains("kimya") -> Color(0xFFB99145)
+        key.contains("biyoloji") -> Color(0xFF58A47E)
+        else -> Color(0xFF768DB0)
+    }
+    val fraction = (result.score.correct.toFloat() /
+        result.score.questions.coerceAtLeast(1)).coerceIn(0f,1f)
+    Surface(
+        modifier = modifier,
+        onClick = onClick,
+        shape = RoundedCornerShape(17.dp),
+        color = if (selected) accent.copy(alpha = .14f) else accent.copy(alpha = .065f),
+        border = BorderStroke(1.dp,
+            if (selected) accent.copy(alpha = .65f) else accent.copy(alpha = .13f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 13.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PublisherLogo(result.exam.publisher, size = 28.dp)
+                Spacer(Modifier.weight(1f))
+                Canvas(Modifier.size(25.dp)) {
+                    val stroke=4.dp.toPx()
+                    drawArc(accent.copy(alpha = .18f),-90f,360f,false,
+                        style=Stroke(stroke,cap=StrokeCap.Round))
+                    drawArc(accent,-90f,360f*fraction,false,
+                        style=Stroke(stroke,cap=StrokeCap.Round))
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(result.score.title, fontSize = 12.sp, color = V18Ink,
+                fontWeight = FontWeight.SemiBold, maxLines = 2,
+                minLines = 2, overflow = TextOverflow.Ellipsis,
+                lineHeight = 15.sp)
+            Row(verticalAlignment=Alignment.Bottom) {
+                Text(LocalData.net(result.score.net),
+                    color = V18Ink, fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.width(4.dp))
+                Text("net", color=V18Muted,fontSize=10.sp,
+                    modifier=Modifier.padding(bottom=3.dp))
+            }
+            Text(result.exam.name, color = V18Muted,
+                fontSize = 9.sp, maxLines=1,
+                overflow=TextOverflow.Ellipsis)
+            Spacer(Modifier.height(3.dp))
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxWidth().height(5.dp),
+                color = accent,
+                trackColor = accent.copy(alpha=.18f)
+            )
+            Text(if (selected) "Detayı kapat  ↑" else "Detayı incele  ↗",
+                color = accent, fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End)
         }
     }
 }
