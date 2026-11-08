@@ -1,6 +1,10 @@
 package com.denemelab.preview
 
+import android.content.ContentValues
+import android.content.Context
 import android.graphics.Bitmap
+import android.os.Environment
+import android.provider.MediaStore
 import android.os.ParcelFileDescriptor
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +16,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
+import java.io.ByteArrayOutputStream
 
 /**
  * Capture ACTUAL rendered Compose analysis UI on Android 16.
@@ -24,8 +28,7 @@ class AnalysisScreenshotV24Test {
     @Test fun renderRealAndroidAnalysisAtTopAndScrolledPositions() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val dir = File(context.filesDir, "analysis-visual")
-        assertTrue(dir.mkdirs() || dir.isDirectory)
+        // Save to shared MediaStore: gradle uninstalls the debug app after tests.
 
         val details = ExamStructure.tytDetailed.map { lesson ->
             val (correct, wrong) = when (lesson.key) {
@@ -91,27 +94,49 @@ class AnalysisScreenshotV24Test {
                 }
             }
             Thread.sleep(2000)
-            capture(File(dir,"01-hero.png"))
+            capture(context,"01-hero.png")
             repeat(4) { index ->
                 val swipe: ParcelFileDescriptor = instrumentation.uiAutomation
                     .executeShellCommand("input swipe 525 1930 525 530 410")
                 swipe.close()
                 Thread.sleep(850)
-                capture(File(dir,"%02d-analysis.png".format(index+2)))
+                capture(context,"%02d-analysis.png".format(index+2))
             }
         }
     }
 
-    private fun capture(file: File) {
+    private fun capture(context: Context, name: String) {
         val bmp: Bitmap = InstrumentationRegistry.getInstrumentation()
             .uiAutomation.takeScreenshot()
             ?: throw AssertionError("Android screenshot returned null")
         try {
             assertTrue("Screenshot cannot be empty",bmp.width >= 320 && bmp.height >= 600)
-            file.outputStream().use { out ->
-                assertTrue(bmp.compress(Bitmap.CompressFormat.PNG,100,out))
+            val bytes = ByteArrayOutputStream().use { out ->
+                assertTrue(bmp.compress(Bitmap.CompressFormat.PNG, 100, out))
+                out.toByteArray()
             }
-            assertTrue("Screenshot file missing",file.isFile && file.length() > 25000)
+            assertTrue("Screenshot PNG unexpectedly tiny", bytes.size > 25000)
+            val signature = byteArrayOf(
+                0x89.toByte(),0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A
+            )
+            assertTrue("Screenshot is not PNG",bytes.take(8) == signature.toList())
+            val values=ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME,name)
+                put(MediaStore.MediaColumns.MIME_TYPE,"image/png")
+                put(MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_PICTURES+"/DenemeLabQA")
+            }
+            val uri = context.contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values
+            ) ?: throw AssertionError("Unable to create screenshot MediaStore entry")
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(bytes)
+                output.flush()
+            } ?: throw AssertionError("MediaStore output stream unavailable")
+            val saved=context.contentResolver.openInputStream(uri)?.use {
+                it.readNBytes(8).toList()
+            }
+            assertTrue("Saved image PNG magic was invalid",saved == signature.toList())
         } finally { bmp.recycle() }
     }
 }
