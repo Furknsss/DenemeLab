@@ -85,7 +85,7 @@ fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot, allExams: List<ExamRecor
             if (recent.size >= 2) {
                 V18NetChart(recent, snapshot.questionLimit)
             } else {
-                Text("Grafik için en az 2 deneme", color = V18Muted, fontSize = 12.sp)
+                V18Empty("Gelişim grafiği için ikinci denemeni ekle")
             }
             Spacer(Modifier.height(12.dp))
             recent.asReversed().take(3).forEachIndexed { index, exam ->
@@ -489,39 +489,75 @@ private fun V18Emoji(i: Int) = listOf("😌", "🙂", "😬", "😵", "😣")[i.
 
 @Composable
 private fun V18NetChart(exams: List<ExamRecord>, questionLimit: Int) {
+    if (exams.size < 2) return
     val values = exams.map { it.net }
-    val highest = maxOf(questionLimit.toDouble(), values.maxOrNull() ?: 1.0, 1.0)
-    val lowest = minOf(0.0, values.minOrNull() ?: 0.0)
-    Canvas(modifier = Modifier.fillMaxWidth().height(110.dp)) {
-        val left = 10.dp.toPx()
-        val right = size.width - 10.dp.toPx()
-        val top = 10.dp.toPx()
-        val bottom = size.height - 10.dp.toPx()
-        repeat(3) { i ->
-            val y = top + (bottom - top) * i / 2f
-            drawLine(V18Line, Offset(left, y), Offset(right, y), strokeWidth = 1.dp.toPx())
-        }
-        val points = values.mapIndexed { index, value ->
-            val x = left + (right-left) * index / (values.size-1).coerceAtLeast(1)
-            val fraction = ((value - lowest) / (highest-lowest).coerceAtLeast(1.0))
-                .toFloat().coerceIn(0f,1f)
-            Offset(x, bottom-(bottom-top)*fraction)
-        }
-        val path = Path().apply {
-            if (points.isNotEmpty()) {
-                moveTo(points.first().x, points.first().y)
-                points.drop(1).forEach { lineTo(it.x, it.y) }
+    val highest = ((values.maxOrNull() ?: 1.0) + 7.0)
+        .coerceAtMost(questionLimit.toDouble().coerceAtLeast(1.0))
+    val lowest = ((values.minOrNull() ?: 0.0) - 7.0).coerceAtLeast(0.0)
+    val range = (highest - lowest).coerceAtLeast(1.0)
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFFF0F8F6),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 13.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("NET EĞRİSİ", color = V18Accent,
+                    fontWeight = FontWeight.Bold, letterSpacing = .7.sp,
+                    fontSize = 9.sp)
+                Text("Son " + values.size + " deneme", color = V18Muted,
+                    fontSize = 10.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Canvas(modifier = Modifier.fillMaxWidth().height(126.dp)) {
+                val left = 8.dp.toPx()
+                val right = size.width - 8.dp.toPx()
+                val top = 9.dp.toPx()
+                val bottom = size.height - 11.dp.toPx()
+                repeat(3) { i ->
+                    val y = top + (bottom-top)*i/2f
+                    drawLine(Color(0xFFD8E8E6),Offset(left,y),Offset(right,y),
+                        strokeWidth = 1.dp.toPx())
+                }
+                val points = values.mapIndexed { index, value ->
+                    val x = left + (right-left)*index/
+                        (values.size-1).coerceAtLeast(1)
+                    val fraction = ((value-lowest)/range).toFloat().coerceIn(0f,1f)
+                    Offset(x,bottom-(bottom-top)*fraction)
+                }
+                val area = Path().apply {
+                    moveTo(points.first().x,bottom)
+                    lineTo(points.first().x,points.first().y)
+                    points.drop(1).forEach { lineTo(it.x,it.y) }
+                    lineTo(points.last().x,bottom)
+                    close()
+                }
+                drawPath(area,brush=androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(V18Accent.copy(alpha=.23f),V18Accent.copy(alpha=.01f))
+                ))
+                val line=Path().apply {
+                    moveTo(points.first().x,points.first().y)
+                    points.drop(1).forEach { lineTo(it.x,it.y) }
+                }
+                drawPath(line,V18Accent,
+                    style=Stroke(3.dp.toPx(),cap=StrokeCap.Round))
+                points.forEachIndexed { index,point ->
+                    drawCircle(Color.White,5.dp.toPx(),center=point)
+                    drawCircle(if(index==points.lastIndex) V18Accent
+                        else Color(0xFF68B9AA),3.3.dp.toPx(),center=point)
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(LocalData.date(exams.first().examDate),color=V18Muted,fontSize=9.sp)
+                Text("Net aralığına göre ölçekli",
+                    color=V18Muted,fontSize=9.sp)
+                Text(LocalData.date(exams.last().examDate),color=V18Muted,fontSize=9.sp)
             }
         }
-        drawPath(path, V18Accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
-        points.forEach { point ->
-            drawCircle(Color.White, radius = 4.5.dp.toPx(), center = point)
-            drawCircle(V18Accent, radius = 3.dp.toPx(), center = point)
-        }
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(LocalData.date(exams.first().examDate), fontSize = 10.sp, color = V18Muted)
-        Text(LocalData.date(exams.last().examDate), fontSize = 10.sp, color = V18Muted)
     }
 }
 
