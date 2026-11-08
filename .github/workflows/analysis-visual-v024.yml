@@ -50,10 +50,16 @@ jobs:
             set -e
             bash ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.denemelab.preview.AnalysisScreenshotV24Test --no-daemon --no-configuration-cache --max-workers=2
             mkdir -p qa-screenshots
-            for name in 01-hero.png 02-analysis.png 03-analysis.png 04-analysis.png 05-analysis.png; do
-              adb exec-out run-as com.denemelab.preview cat "files/analysis-visual/$name" > "qa-screenshots/$name"
-              test -s "qa-screenshots/$name"
-            done
+            adb exec-out run-as com.denemelab.preview cat "files/analysis-visual/01-hero.png" > "qa-screenshots/01-hero.png"
+            test -s "qa-screenshots/01-hero.png"
+            adb exec-out run-as com.denemelab.preview cat "files/analysis-visual/02-analysis.png" > "qa-screenshots/02-analysis.png"
+            test -s "qa-screenshots/02-analysis.png"
+            adb exec-out run-as com.denemelab.preview cat "files/analysis-visual/03-analysis.png" > "qa-screenshots/03-analysis.png"
+            test -s "qa-screenshots/03-analysis.png"
+            adb exec-out run-as com.denemelab.preview cat "files/analysis-visual/04-analysis.png" > "qa-screenshots/04-analysis.png"
+            test -s "qa-screenshots/04-analysis.png"
+            adb exec-out run-as com.denemelab.preview cat "files/analysis-visual/05-analysis.png" > "qa-screenshots/05-analysis.png"
+            test -s "qa-screenshots/05-analysis.png"
             test "$(find qa-screenshots -name '*.png' | wc -l)" -eq 5
       - name: Share real screenshot and instrumentation results
         if: always()
