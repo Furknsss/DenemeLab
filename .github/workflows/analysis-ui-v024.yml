@@ -2,7 +2,7 @@ name: DenemeLab Premium Analysis UI 0.24 QA
 
 on:
   push:
-    branches: [design/analysis-refinement-v024]
+    branches: [design/analysis-data-first-v024]
   workflow_dispatch:
 
 permissions:
