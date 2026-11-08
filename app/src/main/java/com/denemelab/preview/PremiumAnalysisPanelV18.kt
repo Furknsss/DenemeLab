@@ -69,42 +69,9 @@ fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot, allExams: List<ExamRecor
     var lessonTab by remember(snapshot.scope) { mutableStateOf(0) }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        V18Card {
-            V18Header("Net Gelişimi", "Son " + recent.size + " deneme")
-            Spacer(Modifier.height(13.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                V18Metric("Son 3 ort.", snapshot.average?.let(LocalData::net) ?: "—",
-                    Modifier.weight(1f))
-                V18Metric("En iyi", history.maxOfOrNull { it.net }
-                    ?.let(LocalData::net) ?: "—", Modifier.weight(1f))
-                V18Metric("Fark", snapshot.mostRecentDelta?.let {
-                    (if (it > 0) "+" else "") + LocalData.net(it)
-                } ?: "—", Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(14.dp))
-            if (recent.size >= 2) {
-                V18NetChart(recent, snapshot.questionLimit)
-            } else {
-                V18Empty("Gelişim grafiği için ikinci denemeni ekle")
-            }
-            Spacer(Modifier.height(12.dp))
-            recent.asReversed().take(3).forEachIndexed { index, exam ->
-                if (index != 0) Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    PublisherLogo(exam.publisher, size = 31.dp)
-                    Spacer(Modifier.width(9.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(exam.name, fontSize = 12.sp, color = V18Ink,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(LocalData.date(exam.examDate), fontSize = 10.sp, color = V18Muted)
-                    }
-                    Text(LocalData.net(exam.net), color = V18Ink,
-                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-            }
-        }
-
+        // A single exam has no trend; repeating its net as both average
+        // and personal best wastes premium dashboard space.
+        if (repeated.isNotEmpty()) {
         V18Card {
             V18Header("Tekrarlayan Kayıplar", "Son denemelerden kesintisiz yanlışlar")
             Spacer(Modifier.height(13.dp))
@@ -154,6 +121,47 @@ fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot, allExams: List<ExamRecor
                     }
                 }
             }
+        }
+
+        }
+
+        if (recent.size >= 2) {
+        V18Card {
+            V18Header("Net Gelişimi", "Son " + recent.size + " deneme")
+            Spacer(Modifier.height(13.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                V18Metric("Son 3 ort.", snapshot.average?.let(LocalData::net) ?: "—",
+                    Modifier.weight(1f))
+                V18Metric("En iyi", history.maxOfOrNull { it.net }
+                    ?.let(LocalData::net) ?: "—", Modifier.weight(1f))
+                V18Metric("Fark", snapshot.mostRecentDelta?.let {
+                    (if (it > 0) "+" else "") + LocalData.net(it)
+                } ?: "—", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(14.dp))
+            if (recent.size >= 2) {
+                V18NetChart(recent, snapshot.questionLimit)
+            } else {
+                V18Empty("Gelişim grafiği için ikinci denemeni ekle")
+            }
+            Spacer(Modifier.height(12.dp))
+            recent.asReversed().take(3).forEachIndexed { index, exam ->
+                if (index != 0) Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    PublisherLogo(exam.publisher, size = 31.dp)
+                    Spacer(Modifier.width(9.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(exam.name, fontSize = 12.sp, color = V18Ink,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(LocalData.date(exam.examDate), fontSize = 10.sp, color = V18Muted)
+                    }
+                    Text(LocalData.net(exam.net), color = V18Ink,
+                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
