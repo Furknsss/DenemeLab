@@ -2,12 +2,21 @@ package com.denemelab.preview
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoGraph
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.TrendingDown
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
@@ -31,14 +40,14 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private val V18Ink = Color(0xFF161B23)
-private val V18Muted = Color(0xFF748091)
-private val V18Line = Color(0xFFE9EDF1)
-private val V18Pale = Color(0xFFF6F8FA)
-private val V18Accent = Color(0xFF007E83)
-private val V18Green = Color(0xFF168B72)
-private val V18Red = Color(0xFFBD5061)
-private val V18Gold = Color(0xFFB18232)
+private val V18Ink = V23Navy
+private val V18Muted = V23Muted
+private val V18Line = V23Border
+private val V18Pale = Color(0xFFF2F6F8)
+private val V18Accent = V23Teal
+private val V18Green = V23Teal
+private val V18Red = V23Coral
+private val V18Gold = V23Gold
 
 /**
  * Compact evidence-only analytics. No goal comparison (it lives in
@@ -423,30 +432,67 @@ private fun V18NetChart(exams: List<ExamRecord>, questionLimit: Int) {
 private fun V18Card(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = Color.White,
+        tonalElevation = 1.dp,
         border = BorderStroke(1.dp, V18Line)
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 18.dp), content = content)
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 18.dp),content=content)
     }
 }
 
 @Composable
 private fun V18Header(title: String, subtitle: String) {
-    Text(title, color = V18Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-    Spacer(Modifier.height(3.dp))
-    Text(subtitle, color = V18Muted, fontSize = 11.sp)
+    val tint = when {
+        "Kaybettir" in title || "Kayıp" in title -> V18Red
+        "Kazandır" in title -> V18Green
+        "Modum" in title -> Color(0xFF9A75B7)
+        "Ders" in title -> Color(0xFF6389BA)
+        else -> V18Accent
+    }
+    val icon = when {
+        "Tekrarlayan" in title -> Icons.Rounded.Repeat
+        "Kaybettir" in title || "Kayıp" in title -> Icons.Rounded.TrendingDown
+        "Kazandır" in title -> Icons.Rounded.TrendingUp
+        "Modum" in title -> Icons.Rounded.Speed
+        "Ders" in title -> Icons.Rounded.GridView
+        else -> Icons.Rounded.AutoGraph
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(color = tint.copy(alpha = 0.11f),
+            shape = RoundedCornerShape(13.dp)) {
+            Icon(icon, contentDescription = null, tint = tint,
+                modifier = Modifier.padding(10.dp).size(20.dp))
+        }
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = V18Ink, fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(3.dp))
+            Text(subtitle, color = V18Muted, fontSize = 10.5.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
 }
 
 @Composable
 private fun V18Metric(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = V18Pale) {
-        Column(Modifier.padding(11.dp)) {
-            Text(value, color = V18Ink, fontSize = 16.sp,
-                fontWeight = FontWeight.Bold, maxLines = 1,
-                overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(3.dp))
-            Text(label, color = V18Muted, fontSize = 10.sp)
+    val color = when(label) {
+        "En iyi" -> V18Green
+        "Fark" -> Color(0xFF8A72BE)
+        else -> V18Accent
+    }
+    Surface(modifier = modifier,shape = RoundedCornerShape(15.dp),
+        color = color.copy(alpha = .09f)) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 12.dp)) {
+            Box(Modifier.size(7.dp).background(color, CircleShape))
+            Spacer(Modifier.height(8.dp))
+            Text(value,color=V18Ink,fontSize=18.sp,
+                fontWeight=FontWeight.ExtraBold,
+                maxLines=1,overflow=TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            Text(label,color=V18Muted,fontSize=10.sp)
         }
     }
 }
@@ -456,21 +502,32 @@ private fun V18Pill(
     label: String, selected: Boolean, modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp),
-        color = if (selected) V18Ink else V18Pale, onClick = onClick) {
-        Text(label, fontSize = 11.sp, textAlign = TextAlign.Center,
-            color = if (selected) Color.White else V18Muted,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Surface(modifier = modifier,shape=RoundedCornerShape(13.dp),
+        color=if(selected) V18Ink else V18Pale,onClick=onClick) {
+        Text(label,fontSize=11.sp,textAlign=TextAlign.Center,
+            color=if(selected) Color.White else V18Muted,
+            fontWeight=FontWeight.SemiBold,
+            modifier=Modifier.padding(horizontal=9.dp,vertical=11.dp),
+            maxLines=1,overflow=TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 private fun V18Empty(message: String) {
-    Surface(color = V18Pale, shape = RoundedCornerShape(13.dp),
-        modifier = Modifier.fillMaxWidth()) {
-        Text(message, color = V18Muted, fontSize = 11.sp,
-            modifier = Modifier.padding(13.dp))
+    Surface(
+        color = Color(0xFFF1F7F7),
+        shape = RoundedCornerShape(15.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.padding(horizontal = 13.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.AutoGraph,contentDescription=null,tint=V18Accent,
+                modifier=Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(message,color=V18Muted,fontSize=11.sp,lineHeight=16.sp,
+                modifier=Modifier.weight(1f))
+        }
     }
 }
