@@ -1,0 +1,118 @@
+name: DenemeLab v0.23 Signed Compatibility Candidate
+
+on:
+  push:
+    branches: [feat/account-onboarding-cloud-home-v019]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: denemelab-analysis-v023-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatible-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout redesigned v0.23 analysis source, without modifying existing v0.19 source
+        uses: actions/checkout@v4
+        with:
+          ref: 75a86e796af24e4e16f3137da02ff8652503eb99
+          persist-credentials: false
+      - name: Assert exact repaired source version
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "75a86e796af24e4e16f3137da02ff8652503eb99"
+          grep -q 'versionCode = 23' app/build.gradle.kts
+          grep -q 'versionName = "0.23.0"' app/build.gradle.kts
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android platform and build tools
+        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+
+      # Cache scope is the workflow EVENT branch (v0.19), not the checkout.
+      # This is the same immutable private cache used by the v0.19 APK
+      # already installed on the student's device.
+      - name: Restore original v0.19 signing certificate
+        id: signing-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: denemelab-v013-debug-cert-1
+      - name: Require same signing key as installed v0.19 APK
+        env:
+          CACHE_HIT: ${{ steps.signing-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$CACHE_HIT" != "true" ] || [ ! -s "$HOME/.android/debug.keystore" ]; then
+            echo "::error::Original v0.19 signing key is unavailable. For safety, no new key will be generated."
+            exit 1
+          fi
+          CURRENT_SHA=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" \
+            -alias androiddebugkey -storepass android |
+            grep -m1 'SHA1:' | sed 's/.*SHA1: *//' | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+          EXPECTED=ccddeeb6f784d00fab77f98bd3ea917512fe4fe3
+          if [ "$CURRENT_SHA" != "$EXPECTED" ]; then
+            echo "::error::Cached key does not match the signed v0.19 APK. Refusing unsafe upgrade."
+            exit 1
+          fi
+          echo "Using original, already-installed v0.19 Android signing certificate."
+
+      - name: Restore existing Firebase project configuration
+        env:
+          FIREBASE_ANDROID_CONFIG_B64: ${{ secrets.FIREBASE_ANDROID_CONFIG_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$FIREBASE_ANDROID_CONFIG_B64" ]; then
+            echo "::error::Firebase Android configuration secret missing."
+            exit 1
+          fi
+          umask 077
+          printf "%s" "$FIREBASE_ANDROID_CONFIG_B64" | base64 --decode > app/google-services.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("app/google-services.json", encoding="utf-8"))
+          assert d["project_info"]["project_id"]=="denemelab-yks-2026"
+          assert any(x.get("client_info",{}).get("android_client_info",{}).get("package_name")=="com.denemelab.preview" for x in d["client"])
+          print("Firebase project and Android application IDs verified.")
+          PY
+
+      - name: Run full OCR and Android domain regression tests
+        run: bash ./gradlew :app:testDebugUnitTest --no-daemon --no-configuration-cache --max-workers=2
+      - name: Assemble signed v0.23 debug APK using v0.19 signer
+        run: bash ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --max-workers=2
+      - name: Validate original signature and Android package
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > /tmp/apk-signature.txt
+          APK_SHA=$(sed -n 's/^Signer #1 certificate SHA-1 digest: //p' /tmp/apk-signature.txt | head -1 | tr '[:upper:]' '[:lower:]')
+          if [ "$APK_SHA" != "ccddeeb6f784d00fab77f98bd3ea917512fe4fe3" ]; then
+            echo "::error::Generated APK signer mismatch. Artifact publication blocked."
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources "$APK" >/tmp/denemelab-resources.txt
+          grep -q 'string/google_app_id' /tmp/denemelab-resources.txt
+          grep -Eq 'string/(default_web_client_id|denemelab_google_web_client_id)' /tmp/denemelab-resources.txt
+          unzip -t "$APK" | tail -1
+          sha256sum "$APK"
+          echo "APK is signed with v0.19's actual installed certificate."
+          echo "Firebase console SHA registration and real Google login still require device validation."
+      - name: Upload v0.23 compatibility APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenemeLab-v023-OriginalSigner-TestAPK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 5
