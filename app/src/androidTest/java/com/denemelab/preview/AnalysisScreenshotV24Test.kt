@@ -24,7 +24,7 @@ class AnalysisScreenshotV24Test {
     @Test fun renderRealAndroidAnalysisAtTopAndScrolledPositions() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val dir = File(context.getExternalFilesDir(null), "analysis-visual")
+        val dir = File(context.filesDir, "analysis-visual")
         assertTrue(dir.mkdirs() || dir.isDirectory)
 
         val details = ExamStructure.tytDetailed.map { lesson ->
