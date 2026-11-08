@@ -106,40 +106,51 @@ fun PremiumAnalysisPanelV18(snapshot: AnalysisSnapshot, allExams: List<ExamRecor
         }
 
         V18Card {
-            V18Header("Tekrarlayan Kayıplar", "Kesintisiz yanlış serileri")
-            Spacer(Modifier.height(12.dp))
+            V18Header("Tekrarlayan Kayıplar", "Son denemelerden kesintisiz yanlışlar")
+            Spacer(Modifier.height(13.dp))
             if (repeated.isEmpty()) {
-                V18Empty("Ardışık kayıtlı yanlış bulunmuyor")
+                V18Empty("Henüz ardışık yanlış serisi kaydedilmedi")
             } else {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("KONU", color = V18Muted, fontSize = 10.sp,
-                        modifier = Modifier.weight(1f))
-                    Text("SERİ", color = V18Muted, fontSize = 10.sp,
-                        modifier = Modifier.width(92.dp), textAlign = TextAlign.Center)
-                    Text("KAYIP", color = V18Muted, fontSize = 10.sp,
-                        modifier = Modifier.width(76.dp), textAlign = TextAlign.End)
-                }
-                repeated.take(6).forEachIndexed { index, record ->
-                    if (index > 0) HorizontalDivider(color = V18Line)
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                repeated.take(5).forEachIndexed { index, record ->
+                    if (index > 0) Spacer(Modifier.height(8.dp))
+                    Surface(
+                        color = Color(0xFFFFF3F4),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(record.topic, color = V18Ink, fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(record.lessonName, fontSize = 10.sp, color = V18Muted,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(color = Color(0xFFF8DCE0), shape = CircleShape) {
+                                Text((index + 1).toString(),
+                                    color = V18Red, fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.size(27.dp).wrapContentHeight())
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(record.topic, color = V18Ink,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(4.dp))
+                                Text(record.lessonName, color = V18Muted,
+                                    fontSize = 10.sp, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(5.dp))
+                                Text(record.consecutiveExams.toString() + " denemedir",
+                                    color = V18Red, fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("−" + LocalData.net(record.recoverableNet),
+                                    color = V18Red, fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold)
+                                Text("toplam kayıp", color = V18Muted, fontSize = 9.sp)
+                            }
                         }
-                        Text(record.consecutiveExams.toString() + " denemedir",
-                            color = V18Red, fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center, modifier = Modifier.width(92.dp))
-                        Text("−" + LocalData.net(record.recoverableNet),
-                            color = V18Red, fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End, modifier = Modifier.width(76.dp))
                     }
                 }
             }
@@ -232,43 +243,59 @@ private fun V18TopicCard(
     rows: List<TopicMetricV18>,
     negative: Boolean
 ) {
-    val color = if (negative) V18Red else V18Green
+    val accent = if (negative) V18Red else V18Green
+    val tint = if (negative) Color(0xFFFFF4F4) else Color(0xFFEEF8F4)
     V18Card {
-        V18Header(title, if (negative) "Kayıp potansiyeli" else "Ölçülen net katkısı")
-        Spacer(Modifier.height(12.dp))
+        V18Header(title, if (negative) "En yüksek ölçülen kayıp" else "En yüksek ölçülen katkı")
+        Spacer(Modifier.height(13.dp))
         if (rows.isEmpty()) {
-            V18Empty(if (negative) "Konu bazlı yanlış veya boş kaydı yok"
-                else "Ölçülmüş konu doğrusu yok")
+            V18Empty(if (negative) "Bu aralıkta konu kaybı ölçülmedi"
+                else "Bu aralıkta konu doğrusu ölçülmedi")
         } else {
             val largest = rows.maxOf {
                 if (negative) it.recoverableNet else it.earnedNet
             }.coerceAtLeast(0.001)
             rows.forEachIndexed { index, item ->
-                if (index != 0) Spacer(Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text((index + 1).toString().padStart(2, '0'),
-                        color = V18Muted, fontSize = 11.sp,
-                        modifier = Modifier.width(27.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(item.topic, color = V18Ink, fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis)
-                        Text(item.lessonName + " · " + item.exams + " deneme",
-                            color = V18Muted, fontSize = 10.sp)
+                if (index > 0) Spacer(Modifier.height(8.dp))
+                val value = if (negative) item.recoverableNet else item.earnedNet
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = tint
+                ) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 11.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = RoundedCornerShape(9.dp),
+                                color = accent.copy(alpha = .14f)) {
+                                Text((index+1).toString().padStart(2,'0'),
+                                    color = accent, fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal=8.dp,vertical=7.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(item.topic, color = V18Ink, fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(3.dp))
+                                Text(item.lessonName + " · " + item.exams + " deneme",
+                                    color = V18Muted, fontSize = 10.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Spacer(Modifier.width(5.dp))
+                            Text((if (negative) "−" else "+") + LocalData.net(value),
+                                color = accent, fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold)
+                        }
+                        Spacer(Modifier.height(11.dp))
+                        LinearProgressIndicator(
+                            progress = { (value/largest).toFloat().coerceIn(0f,1f) },
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = accent,
+                            trackColor = accent.copy(alpha = .14f)
+                        )
                     }
-                    Text((if (negative) "−" else "+") +
-                        LocalData.net(if (negative) item.recoverableNet else item.earnedNet),
-                        color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(6.dp))
-                LinearProgressIndicator(
-                    progress = {
-                        ((if (negative) item.recoverableNet else item.earnedNet) /
-                            largest).toFloat().coerceIn(0f, 1f)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(4.dp),
-                    color = color, trackColor = V18Line
-                )
             }
         }
     }
