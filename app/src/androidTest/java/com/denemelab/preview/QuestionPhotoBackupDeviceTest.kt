@@ -23,7 +23,7 @@ class QuestionPhotoBackupDeviceTest {
         val fileName=QuestionPhotoStore.persist(ctx,cropped)
         val saved=QuestionRecord(System.currentTimeMillis(),"Soru 12","TYT Matematik",
             "Problemler","Örnek kaynak","Yanlış",0,System.currentTimeMillis(),fileName)
-        val archive:java.io.File?
+        lateinit var archive:java.io.File
         try {
             assertTrue(LocalData.saveQuestions(ctx,listOf(saved)))
             archive=DenemeLabBackup.createArchive(ctx)
