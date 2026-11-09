@@ -157,15 +157,31 @@ internal fun DenemeLabApp() {
                             onManualGoal = { showGoalDialog = true },
                             onInspect = { openSelectedDetail = true; showAtlasDialog = true },
                             program = selectedProgram)
-                        else -> QuestionBankScreen(questions, onAdd = { showAddQuestion = true },
+                        else -> QuestionVaultV24(questions,
+                            onAdd = { showAddQuestion = true },
                             onUpdate = { question, correct ->
                                 val index = questions.indexOfFirst { it.id == question.id }
                                 if (index >= 0) {
-                                    questions[index] = question.copy(
-                                        correctStreak = ExamRules.nextCorrectStreak(question.correctStreak, correct)
+                                    val updated = question.copy(
+                                        correctStreak = ExamRules.nextCorrectStreak(
+                                            question.correctStreak, correct)
                                     )
-                                    LocalData.saveQuestions(context, questions)
+                                    val next = questions.toMutableList().apply { set(index, updated) }
+                                    if (LocalData.saveQuestions(context, next)) questions[index] = updated
+                                    else Toast.makeText(context, "Tekrar kaydedilemedi.",
+                                        Toast.LENGTH_LONG).show()
                                 }
+                            },
+                            onDelete = { question ->
+                                val next = questions.filterNot { it.id == question.id }
+                                if (LocalData.saveQuestions(context, next)) {
+                                    questions.removeAll { it.id == question.id }
+                                    // Delete only after confirmed record removal.
+                                    if (question.imageFile.isNotBlank()) {
+                                        QuestionPhotoStore.discard(context, question.imageFile)
+                                    }
+                                    true
+                                } else false
                             })
                     }
                 }
@@ -210,13 +226,16 @@ internal fun DenemeLabApp() {
             }
         })
 
-    if (showAddQuestion) QuestionEntryDialog(
+    if (showAddQuestion) QuestionEntryV24(
         onDismiss = { showAddQuestion = false },
         onSave = { question ->
-            questions.add(0, question)
-            LocalData.saveQuestions(context, questions)
-            showAddQuestion = false
-            tab = 4
+            val next = listOf(question) + questions.toList()
+            if (LocalData.saveQuestions(context, next)) {
+                questions.add(0, question)
+                showAddQuestion = false
+                tab = 4
+                true
+            } else false
         })
 
     if (showProfileDialog) StudentProfileDialog(
