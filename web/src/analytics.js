@@ -42,7 +42,7 @@ function evidence(exam) {
   }
   for (const x of exam?.topicIssues || []) {
     if (!x?.topic || !Number.isFinite(x.count) || x.count<=0 ||
-      !["Yanlış","Boş"].includes(x.kind) || map.has(keyOf(x))) continue;
+      !["Yanlış","Boş"].includes(x.kind) || map.get(keyOf(x))?.verified) continue;
     const key=keyOf(x);
     const previous=map.get(key)||{topic:x.topic,lesson:x.lessonName||"Ders",
       lessonKey:x.lessonKey,correct:0,wrong:0,blank:0,verified:false};
