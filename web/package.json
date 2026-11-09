@@ -1,0 +1,22 @@
+{
+  "name": "denemelab-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "firebase": "11.10.0",
+    "fflate": "0.8.2",
+    "lucide-react": "0.468.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "recharts": "2.15.3"
+  },
+  "devDependencies": {
+    "vite": "6.3.5"
+  }
+}
