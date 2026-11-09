@@ -561,17 +561,22 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
                 " denemeni ekleyerek arşivini başlatabilirsin.")
         } else {
             filtered.forEach { exam ->
+                val accent = if (exam.examType == "TYT") DenemeVibrant.Blue
+                    else DenemeVibrant.Mint
                 Surface(onClick = { onDetail(exam) }, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp), color = Color.White,
                     border = androidx.compose.foundation.BorderStroke(1.dp, Line)) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(4.dp).height(58.dp)
+                            .background(accent, RoundedCornerShape(8.dp)))
+                        Spacer(Modifier.width(11.dp))
                         if (exam.publisher.isNotBlank()) {
                             PublisherLogo(exam.publisher, size = 47.dp)
                             Spacer(Modifier.width(12.dp))
                         }
                         Column(Modifier.weight(1f)) {
                             if (exam.publisher.isNotBlank()) {
-                                Text(exam.publisher, color = Grey, fontSize = 11.sp,
+                                Text(exam.publisher, color = accent, fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium)
                                 Spacer(Modifier.height(5.dp))
                             }
@@ -586,7 +591,7 @@ private fun ExamsScreen(exams: List<ExamRecord>, mode: String, onMode: (String) 
                         Spacer(Modifier.width(10.dp))
                         Column(horizontalAlignment = Alignment.End) {
                             Text(LocalData.net(exam.net), fontSize = 21.sp,
-                                fontWeight = FontWeight.Bold, color = Ink)
+                                fontWeight = FontWeight.Bold, color = accent)
                             Muted("net")
                             Spacer(Modifier.height(7.dp))
                             DifficultyMiniBadge(exam.difficulty)
@@ -700,7 +705,7 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
                         Text(LocalData.month(items.first().examDate), Modifier.weight(1f),
                             color = Grey, fontSize = 13.sp)
                         Text(LocalData.net(items.map { it.net }.average()) + " net",
-                            color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            color = DenemeVibrant.Blue, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                     if (groups.size > 1) HorizontalDivider(color = Line)
                 }
@@ -715,6 +720,12 @@ private fun ProgressScreen(exams: List<ExamRecord>, mode: String, onMode: (Strin
         Spacer(Modifier.height(25.dp))
         SectionTitle("Hedef üniversitem")
         PremiumCard(Modifier.fillMaxWidth()) {
+            Surface(color = DenemeVibrant.GoldSoft, shape = RoundedCornerShape(10.dp)) {
+                Text("HEDEF MERKEZİ", color = Color(0xFFB77C00), fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp))
+            }
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (program != null) {
                     UniversityLogo(program.universityId, program.university, 46.dp)
