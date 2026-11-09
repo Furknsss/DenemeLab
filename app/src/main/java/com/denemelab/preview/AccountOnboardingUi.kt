@@ -30,10 +30,10 @@ import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
-private val LoginInk = Color(0xFF191D25)
-private val LoginMuted = Color(0xFF758090)
-private val LoginAccent = Color(0xFF077F85)
-private val LoginSurface = Color(0xFFF9FAFC)
+private val LoginInk = DenemeVibrant.Ink
+private val LoginMuted = DenemeVibrant.Muted
+private val LoginAccent = Color(0xFF00AA8F)
+private val LoginSurface = DenemeVibrant.Canvas
 
 private fun Context.asActivity(): Activity? {
     var ctx: Context = this
