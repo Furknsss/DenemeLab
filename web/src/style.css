@@ -13,3 +13,48 @@
 @media(max-width:760px){.app-shell{display:block}.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-101%);transition:transform .22s;height:100dvh;box-shadow:0 15px 45px #16283615}.sidebar.open{transform:translateX(0)}.scrim.visible{display:block;position:fixed;inset:0;background:#16293b7a;z-index:14}.close-mobile,.menu-button{display:grid;place-items:center;background:none;border:0;color:#577082;padding:8px}.sidebar-logo{display:flex;justify-content:space-between;align-items:center}.topbar{height:74px;padding:0 17px}.topbar-left{display:flex;align-items:center;gap:11px}.topbar-left h2{font-size:14px}.top-avatar strong,.top-avatar>svg{display:none}.top-avatar{padding:4px;border-radius:12px}.topbar-right{gap:7px}.topbar .sync-status{font-size:0;padding:11px}.topbar .sync-status svg{width:17px;height:17px}.main{padding:23px 15px}.intro{align-items:flex-start}.intro h1{font-size:24px}.today{display:none}.overview-side{display:flex}.analysis-grid{grid-template-columns:1fr}.subjects{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-topic{grid-template-columns:1fr}.footer{flex-direction:column;align-items:start}.login-page{grid-template-columns:1fr}.login-story{display:none}.login-side{min-height:100vh;padding:35px 16px}.login-card{padding:25px}.search{height:34px}.search input{width:100px;min-width:0}.metrics{gap:7px}.metric{padding:11px;border-radius:14px}.metric>div span{font-size:8px}.metric>div svg{width:13px}.metric>strong{font-size:18px}.metric>small{font-size:9px}.hero{padding:17px;min-height:300px}.hero-net{font-size:36px}.hero-center{justify-content:space-between}.ring{width:122px;height:122px}.ring strong{font-size:24px}.hero-stat{padding:9px}.hero-stat strong{font-size:15px}.hero-stat span{font-size:9px}.panel{padding:17px}.section-heading{gap:9px}.heading-icon{width:34px;height:34px;flex-basis:34px}.heading-copy h3{font-size:13px}}
 @media(max-width:430px){.topbar .sync-status{display:none}.intro h1{font-size:22px}.hero-net{font-size:31px}.ring{width:107px;height:107px}.hero-cap span{font-size:8px}.hero-stat span{font-size:8px}.metrics{grid-template-columns:1fr 1fr}.metrics .metric:last-child{grid-column:span 2}.subjects{grid-template-columns:1fr 1fr}.subject-top>small{display:none}.modal-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+
+
+/* Shared premium language with DenemeLab Android v0.23 */
+:root{
+  --dl-ink:#192f40;
+  --dl-teal:#178f80;
+  --dl-mint:#bdf6de;
+  --dl-coral:#cd626d;
+  --dl-gold:#e4ae54;
+  --dl-surface:#ffffff;
+  --dl-canvas:#f5f7f8;
+  --dl-stroke:#e4ebef;
+}
+body{background:var(--dl-canvas)}
+.panel,.metric,.subject{box-shadow:0 5px 24px rgba(27,49,63,.035)}
+.panel{border-color:var(--dl-stroke)}
+.hero{background:linear-gradient(118deg,#1b3546 0%,#172c3b 64%,#174542 112%)}
+.nav-item.active{background:#e6f4f0;color:#158c7b}
+.subject:hover,.subject.selected{box-shadow:0 8px 26px rgba(24,115,99,.1)}
+.login-story{background:radial-gradient(ellipse at 90% 96%,#285e54 0%,#1d3a49 42%,#152c40 100%)}
+.logo-symbol{background:#192f40}
+.login-card{box-shadow:0 18px 60px rgba(23,47,65,.065)}
+.login-card .primary{background:#192f40}
+.login-card .primary:hover{background:#254c5b}
+.preview-open{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  width:100%;margin-top:22px;border-radius:13px;padding:13px 12px;
+  border:1px solid #cce9df;background:#ebf7f2;color:#168978;
+  font-weight:800;font-size:12px;transition:transform .2s,box-shadow .2s
+}
+.preview-open:hover{transform:translateY(-1px);box-shadow:0 8px 20px #157b6730}
+.preview-explainer{margin:8px 0 0!important;text-align:center;font-size:10px!important;color:#8499a5!important}
+.demo-banner{display:flex;align-items:center;gap:10px;margin-bottom:19px;
+  padding:13px 16px;border-radius:15px;border:1px solid #bcded4;
+  background:#e7f5f0;color:#25685c;font-size:12px;line-height:1.5}
+.demo-banner svg{color:#178f80}
+.demo-banner span{flex:1}
+.demo-banner button{white-space:nowrap;display:flex;align-items:center;gap:5px;background:#fff;
+  color:#1c7667;border:1px solid #cce6de;padding:9px 12px;
+  font-size:11px;font-weight:800;border-radius:10px}
+.demo-banner button:hover{background:#f4fefa}
+@media(max-width:760px){
+  .demo-banner{align-items:flex-start;flex-wrap:wrap}
+  .demo-banner button{margin-left:28px}
+}
