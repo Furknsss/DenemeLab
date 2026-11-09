@@ -7,13 +7,13 @@ import {
 import { getFirestore, doc, getDocFromServer, onSnapshot } from "firebase/firestore";
 import { unzipSync, strFromU8 } from "fflate";
 
-const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "denemelab-yks-2026";
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "";
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || projectId + ".firebaseapp.com",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
   projectId,
 };
-export const configured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+export const configured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.authDomain);
 const app = configured ? initializeApp(firebaseConfig) : null;
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
@@ -132,7 +132,7 @@ async function getValidatedBackup(uid, id) {
 export function subscribeBackup(uid, onUpdate) {
   let request = 0;
   const ref = doc(db, "users", uid, "metadata", "current");
-  return onSnapshot(ref, async (snapshot) => {
+  return onSnapshot(ref, { includeMetadataChanges: true }, async (snapshot) => {
     if (snapshot.metadata.fromCache) {
       onUpdate({ phase: "loading", message: "Sunucuyla doğrulanıyor…" });
       return;
