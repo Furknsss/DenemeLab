@@ -28,11 +28,11 @@ import androidx.compose.ui.unit.sp
 import java.util.Calendar
 import java.util.Locale
 
-private val HomeInk = Color(0xFF181E27)
-private val HomeMuted = Color(0xFF788391)
-private val HomeBorder = Color(0xFFE6EAF0)
-private val HomeSoft = Color(0xFFF6F8FA)
-private val HomeTeal = Color(0xFF0C797D)
+private val HomeInk = DenemeVibrant.Ink
+private val HomeMuted = DenemeVibrant.Muted
+private val HomeBorder = DenemeVibrant.Border
+private val HomeSoft = DenemeVibrant.MintSoft
+private val HomeTeal = DenemeVibrant.Mint
 
 object HomeGreetingV19 {
     fun forHour(hour: Int): String = when (hour) {
@@ -85,26 +85,26 @@ fun HomeOverviewV19(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White, shape = RoundedCornerShape(23.dp),
-            border = BorderStroke(1.dp, HomeBorder)
+            border = BorderStroke(1.dp, Color(0xFF2C3647))
         ) {
             Column(Modifier.padding(19.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Son denemen", color = HomeMuted,
+                    Text("Son denemen", color = Color(0xFFB9C6D3),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp, modifier = Modifier.weight(1f))
                     if (latest != null) {
                         Text(latest.examType + " · " + latest.category,
-                            color = HomeTeal, fontWeight = FontWeight.SemiBold,
+                            color = DenemeVibrant.Mint, fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp)
                     }
                 }
                 Spacer(Modifier.height(15.dp))
                 if (latest == null) {
-                    Text("İlk denemeni ekle", color = HomeInk,
+                    Text("İlk denemeni ekle", color = Color.White,
                         fontWeight = FontWeight.Bold, fontSize = 23.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("İlk kayıtla birlikte performansın burada görünecek.",
-                        color = HomeMuted, fontSize = 12.sp)
+                        color = Color(0xFFB9C6D3), fontSize = 12.sp)
                     Spacer(Modifier.height(15.dp))
                     HomeAction(label = "Deneme ekle",
                         icon = Icons.Rounded.Add,
@@ -114,13 +114,13 @@ fun HomeOverviewV19(
                         PublisherLogo(latest.publisher, size = 56.dp)
                         Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(latest.name, fontSize = 15.sp, color = HomeInk,
+                            Text(latest.name, fontSize = 15.sp, color = Color.White,
                                 fontWeight = FontWeight.Bold, maxLines = 2,
                                 overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(4.dp))
                             Text((latest.publisher.ifBlank { "Deneme" }) + " · " +
                                 LocalData.date(latest.examDate),
-                                fontSize = 11.sp, color = HomeMuted,
+                                fontSize = 11.sp, color = Color(0xFFB9C6D3),
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -129,25 +129,25 @@ fun HomeOverviewV19(
                         Text(LocalData.net(latest.net), fontSize = 38.sp,
                             fontWeight = FontWeight.Bold, color = HomeInk)
                         Spacer(Modifier.width(6.dp))
-                        Text("net", color = HomeMuted, fontSize = 14.sp,
+                        Text("net", color = Color(0xFFB9C6D3), fontSize = 14.sp,
                             modifier = Modifier.padding(bottom = 7.dp))
                         Spacer(Modifier.weight(1f))
                         previous?.let { prev ->
                             val delta = latest.net - prev.net
                             Text((if (delta > 0) "+" else "") + LocalData.net(delta),
-                                color = if (delta >= 0) HomeTeal else Color(0xFFAD5365),
+                                color = if (delta >= 0) DenemeVibrant.Mint else Color(0xFFFF7896),
                                 fontWeight = FontWeight.Bold, fontSize = 13.sp,
                                 modifier = Modifier.padding(bottom = 9.dp))
                         }
                     }
-                    HorizontalDivider(color = HomeBorder,
+                    HorizontalDivider(color = Color(0xFF344051),
                         modifier = Modifier.padding(vertical = 13.dp))
                     Row(horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()) {
-                        HomeMiniStat("Doğru", latest.correct.toString())
-                        HomeMiniStat("Yanlış", latest.wrong.toString())
-                        HomeMiniStat("Boş", latest.blank.toString())
-                        HomeMiniStat("Sınav", latest.examType)
+                        HomeMiniStat("Doğru", latest.correct.toString(),true)
+                        HomeMiniStat("Yanlış", latest.wrong.toString(),true)
+                        HomeMiniStat("Boş", latest.blank.toString(),true)
+                        HomeMiniStat("Sınav", latest.examType,true)
                     }
                     Spacer(Modifier.height(15.dp))
                     Surface(
@@ -194,11 +194,13 @@ fun HomeOverviewV19(
 }
 
 @Composable
-private fun HomeMiniStat(label: String, value: String) {
+private fun HomeMiniStat(label: String, value: String, onDark: Boolean = false) {
     Column {
-        Text(value, fontSize = 15.sp, color = HomeInk,
+        Text(value, fontSize = 15.sp,
+            color = if (onDark) Color.White else HomeInk,
             fontWeight = FontWeight.Bold)
-        Text(label, fontSize = 10.sp, color = HomeMuted)
+        Text(label, fontSize = 10.sp,
+            color = if (onDark) Color(0xFFAABCC8) else HomeMuted)
     }
 }
 
@@ -222,14 +224,26 @@ private fun HomeAction(
     modifier: Modifier,
     onClick: () -> Unit
 ) {
+    val accent = when {
+        label.contains("Deneme") -> DenemeVibrant.Mint
+        label.contains("Analiz") -> DenemeVibrant.Blue
+        label.contains("İlerleme") -> DenemeVibrant.Gold
+        else -> DenemeVibrant.Coral
+    }
+    val background = when {
+        label.contains("Deneme") -> DenemeVibrant.MintSoft
+        label.contains("Analiz") -> DenemeVibrant.BlueSoft
+        label.contains("İlerleme") -> DenemeVibrant.GoldSoft
+        else -> DenemeVibrant.CoralSoft
+    }
     Surface(
         onClick = onClick, modifier = modifier,
-        color = Color.White, shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, HomeBorder)
+        color = background, shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = .23f))
     ) {
         Row(Modifier.padding(horizontal = 15.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = HomeTeal, modifier = Modifier.size(21.dp))
+            Icon(icon, null, tint = accent, modifier = Modifier.size(21.dp))
             Spacer(Modifier.width(9.dp))
             Text(label, fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
