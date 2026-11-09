@@ -44,10 +44,10 @@ private val V18Ink = V23Navy
 private val V18Muted = V23Muted
 private val V18Line = V23Border
 private val V18Pale = Color(0xFFF2F6F8)
-private val V18Accent = V23Teal
-private val V18Green = V23Teal
-private val V18Red = V23Coral
-private val V18Gold = V23Gold
+private val V18Accent = Color(0xFF00A98A)
+private val V18Green = Color(0xFF00AC8B)
+private val V18Red = DenemeVibrant.Coral
+private val V18Gold = DenemeVibrant.Gold
 
 /**
  * Compact evidence-only analytics. No goal comparison (it lives in
