@@ -34,16 +34,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-private val InkV3 = Color(0xFF141820)
+private val InkV3 = DenemeVibrant.Ink
 private val MutedV3 = Color(0xFF77818F)
 private val BorderV3 = Color(0xFFE8ECF2)
 private val PanelV3 = Color(0xFFF7F9FC)
-private val BlueV3 = Color(0xFF3479DC)
-private val BlueTintV3 = Color(0xFFEAF2FF)
-private val GreenV3 = Color(0xFF16866A)
-private val GreenTintV3 = Color(0xFFEAF8F1)
-private val AmberV3 = Color(0xFFD99324)
-private val RedV3 = Color(0xFFD45460)
+private val BlueV3 = DenemeVibrant.Blue
+private val BlueTintV3 = DenemeVibrant.BlueSoft
+private val GreenV3 = Color(0xFF00A98A)
+private val GreenTintV3 = DenemeVibrant.MintSoft
+private val AmberV3 = Color(0xFFE2A018)
+private val RedV3 = DenemeVibrant.Coral
 private val WhiteV3 = Color.White
 
 /**
