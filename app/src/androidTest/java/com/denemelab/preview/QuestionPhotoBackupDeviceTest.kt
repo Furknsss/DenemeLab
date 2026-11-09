@@ -5,6 +5,13 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.view.PixelCopy
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import androidx.activity.compose.setContent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
@@ -56,21 +63,39 @@ class QuestionPhotoBackupDeviceTest {
                 }
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                 Thread.sleep(1000)
+                val done=CountDownLatch(1)
+                val copyResult=AtomicInteger(-1)
+                val captureError=AtomicReference<Throwable?>(null)
                 scenario.onActivity { activity ->
                     val root=activity.window.decorView.rootView
                     assertTrue(root.width>0 && root.height>0)
                     val screenshot=Bitmap.createBitmap(
                         root.width,root.height,Bitmap.Config.ARGB_8888
                     )
-                    try {
-                        root.draw(Canvas(screenshot))
-                        val output=File(activity.filesDir,"qa-question-vault-v024.png")
-                        output.outputStream().use {
-                            assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG,100,it))
+                    // Coil can load hardware bitmaps. Drawing a View into a
+                    // software Canvas crashes; copy the actual GPU window instead.
+                    PixelCopy.request(activity.window,screenshot,{ result ->
+                        copyResult.set(result)
+                        try {
+                            if(result==PixelCopy.SUCCESS) {
+                                val output=File(activity.filesDir,"qa-question-vault-v024.png")
+                                output.outputStream().use {
+                                    if(!screenshot.compress(Bitmap.CompressFormat.PNG,100,it))
+                                        throw IllegalStateException("Screenshot could not be compressed.")
+                                }
+                                if(output.length()<=4096L)
+                                    throw IllegalStateException("Screenshot file was too small.")
+                            }
+                        } catch(t:Throwable) { captureError.set(t) }
+                        finally {
+                            screenshot.recycle()
+                            done.countDown()
                         }
-                        assertTrue("Screenshot should contain rendered UI.",output.length()>4096)
-                    } finally { screenshot.recycle() }
+                    },Handler(Looper.getMainLooper()))
                 }
+                assertTrue("PixelCopy capture timed out.",done.await(12,TimeUnit.SECONDS))
+                assertEquals("Screenshot capture failed.",PixelCopy.SUCCESS,copyResult.get())
+                captureError.get()?.let { throw it }
             }
         } finally {
             QuestionPhotoStore.discard(ctx,fileName)
