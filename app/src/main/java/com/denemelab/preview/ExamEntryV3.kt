@@ -52,11 +52,11 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val Black = Color(0xFF111111)
-private val Muted = Color(0xFF737373)
-private val Hairline = Color(0xFFEAEAEA)
+private val Black = DenemeVibrant.Ink
+private val Muted = DenemeVibrant.Muted
+private val Hairline = DenemeVibrant.Border
 private val Paper = Color.White
-private val Soft = Color(0xFFF6F6F6)
+private val Soft = DenemeVibrant.BlueSoft
 
 data class ExamEntrySubmission(val exam: ExamRecord, val newPublisherLogo: Uri?)
 

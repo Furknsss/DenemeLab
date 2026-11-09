@@ -28,14 +28,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-internal val V23Navy = Color(0xFF192F40)
-internal val V23Teal = Color(0xFF178F80)
-internal val V23Coral = Color(0xFFCD626D)
-internal val V23Gold = Color(0xFFE4AE54)
+internal val V23Navy = DenemeVibrant.Ink
+internal val V23Teal = Color(0xFF00A98A)
+internal val V23Coral = DenemeVibrant.Coral
+internal val V23Gold = DenemeVibrant.Gold
 internal val V23Muted = Color(0xFF738496)
 internal val V23Background = Color(0xFFF4F7F8)
 internal val V23Border = Color(0xFFE4EBEF)
-internal val V23Mint = Color(0xFFBDF6DE)
+internal val V23Mint = Color(0xFF90FFDA)
 
 @Composable
 internal fun AnalysisHeroV23(

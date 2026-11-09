@@ -39,7 +39,8 @@ data class QuestionRecord(
     val source: String,
     val outcome: String,
     val correctStreak: Int,
-    val createdAt: Long
+    val createdAt: Long,
+    val imageFile: String = ""
 ) {
     val completed: Boolean get() = correctStreak >= 2
 }
@@ -99,12 +100,13 @@ object LocalData {
                 source = v.optString("source"),
                 outcome = v.optString("outcome", "Yanlış"),
                 correctStreak = v.optInt("correctStreak", 0),
-                createdAt = v.getLong("createdAt")
+                createdAt = v.getLong("createdAt"),
+                imageFile = v.optString("imageFile", "")
             )
         }.sortedByDescending { it.createdAt }
     }.getOrElse { emptyList() }
 
-    fun saveQuestions(context: Context, questions: List<QuestionRecord>) {
+    fun saveQuestions(context: Context, questions: List<QuestionRecord>): Boolean {
         val values = JSONArray()
         questions.forEach {
             values.put(JSONObject()
@@ -115,10 +117,12 @@ object LocalData {
                 .put("source", it.source)
                 .put("outcome", it.outcome)
                 .put("correctStreak", it.correctStreak)
-                .put("createdAt", it.createdAt))
+                .put("createdAt", it.createdAt)
+                .put("imageFile", it.imageFile))
         }
-        preferences(context).edit().putString("questions", values.toString()).apply()
-        BackupSignal.changed(context)
+        val saved = preferences(context).edit().putString("questions", values.toString()).commit()
+        if (saved) BackupSignal.changed(context)
+        return saved
     }
 
     fun loadTarget(context: Context): TargetRecord {
