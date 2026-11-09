@@ -21,7 +21,12 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
 
 export const authActions = {
-  listen: (next) => auth ? onAuthStateChanged(auth, next) : () => {},
+  listen: (next) => {
+    if (auth) return onAuthStateChanged(auth, next);
+    // A missing web API key must never trap visitors on the splash screen.
+    next(null);
+    return () => {};
+  },
   google: () => signInWithPopup(auth, provider),
   email: (email, password) => signInWithEmailAndPassword(auth, email, password),
   register: async (email, password, name) => {
