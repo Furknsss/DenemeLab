@@ -62,12 +62,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
-private val Ink = Color(0xFF111111)
-private val Grey = Color(0xFF727272)
-private val Light = Color(0xFFFAFAFA)
-private val Line = Color(0xFFE9E9E9)
-private val Pale = Color(0xFFF3F3F3)
-private val Middle = Color(0xFFADADAD)
+private val Ink = DenemeVibrant.Ink
+private val Grey = DenemeVibrant.Muted
+private val Light = DenemeVibrant.Canvas
+private val Line = DenemeVibrant.Border
+private val Pale = DenemeVibrant.MintSoft
+private val Middle = DenemeVibrant.Coral
 
 private data class NavTab(val title: String, val icon: ImageVector)
 private val TABS = listOf(
@@ -81,8 +81,8 @@ private val TABS = listOf(
 class PremiumActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = AndroidColor.rgb(250, 250, 250)
-        window.navigationBarColor = AndroidColor.rgb(250, 250, 250)
+        window.statusBarColor = AndroidColor.rgb(244, 247, 251)
+        window.navigationBarColor = AndroidColor.rgb(244, 247, 251)
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
             android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
@@ -126,7 +126,9 @@ internal fun DenemeLabApp() {
     }
 
     val palette = lightColorScheme(
-        primary = Ink, onPrimary = Color.White,
+        primary = DenemeVibrant.Blue, onPrimary = Color.White,
+        secondary = DenemeVibrant.Mint, onSecondary = Ink,
+        tertiary = DenemeVibrant.Gold, onTertiary = Ink,
         surface = Color.White, onSurface = Ink,
         background = Light, onBackground = Ink,
         surfaceVariant = Pale, onSurfaceVariant = Grey,
@@ -386,15 +388,15 @@ private fun FloatingDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modif
                     onClick = { onSelect(index) },
                     modifier = Modifier.size(dimension).semantics { contentDescription = entry.title },
                     shape = CircleShape,
-                    color = if (active) {
-                        if (selected == 2) V23Navy else Ink
-                    } else Color.White
+                    color = if (active) Ink else Color.White
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(entry.icon, contentDescription = entry.title,
-                            tint = if (active) {
-                                if (selected == 2) V23Mint else Color.White
-                            } else Grey,
+                            tint = if (active) listOf(
+                                DenemeVibrant.Mint, DenemeVibrant.Blue,
+                                DenemeVibrant.Violet, DenemeVibrant.Gold,
+                                DenemeVibrant.Coral
+                            )[index] else Grey,
                             modifier = Modifier.size(if (active) 26.dp else 23.dp))
                     }
                 }
@@ -444,7 +446,7 @@ private fun Pill(title: String, active: Boolean, onClick: () -> Unit, modifier: 
     Surface(onClick = onClick, modifier = modifier,
         color = if (active) Ink else Pale, shape = CircleShape) {
         Text(title, Modifier.padding(horizontal = 17.dp, vertical = 11.dp),
-            color = if (active) Color.White else Grey, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+            color = if (active) DenemeVibrant.Mint else Grey, fontSize = 13.sp, fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center)
     }
 }
@@ -461,12 +463,12 @@ private fun CategoryPicker(selected: String, onSelect: (String) -> Unit) {
 @Composable
 private fun PrimaryAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(onClick = onClick, modifier = modifier.fillMaxWidth(),
-        color = Ink, shape = RoundedCornerShape(18.dp)) {
+        color = DenemeVibrant.Mint, shape = RoundedCornerShape(18.dp)) {
         Row(Modifier.padding(vertical = 16.dp, horizontal = 18.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.Add, contentDescription = null, tint = Ink, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(7.dp))
-            Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(text, color = Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
     }
 }
@@ -619,7 +621,7 @@ private fun DonutChart(correct: Int, wrong: Int, blank: Int) {
         }) {
             val width = 13.dp.toPx()
             var start = -90f
-            listOf(Pair(correct, Ink), Pair(wrong, Middle), Pair(blank, Line)).forEach { (count, color) ->
+            listOf(Pair(correct, DenemeVibrant.Mint), Pair(wrong, DenemeVibrant.Coral), Pair(blank, DenemeVibrant.Gold)).forEach { (count, color) ->
                 val angle = 360f * count / total * fraction
                 if (angle > 0.001f) {
                     drawArc(color, start, angle, useCenter = false,
@@ -660,9 +662,9 @@ private fun TrendChart(exams: List<ExamRecord>, height: Int) {
             val x = pad + w * index / (values.size - 1).toFloat()
             val y = pad + h * (1f - (value - lo) / (hi - lo).coerceAtLeast(1f))
             if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-            drawCircle(Ink, radius = 3.dp.toPx(), center = Offset(x, y))
+            drawCircle(DenemeVibrant.Blue, radius = 3.dp.toPx(), center = Offset(x, y))
         }
-        drawPath(path, Ink, style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(path, DenemeVibrant.Blue, style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round))
     }
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
