@@ -37,11 +37,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 
-private val Ink = androidx.compose.ui.graphics.Color(0xFF111111)
-private val Muted = androidx.compose.ui.graphics.Color(0xFF6B6B6B)
-private val Border = androidx.compose.ui.graphics.Color(0xFFEAEAEA)
+private val Ink = DenemeVibrant.Ink
+private val Muted = DenemeVibrant.Muted
+private val Border = DenemeVibrant.Border
 private val Paper = androidx.compose.ui.graphics.Color.White
-private val Subtle = androidx.compose.ui.graphics.Color(0xFFF5F5F5)
+private val Subtle = DenemeVibrant.MintSoft
 
 @Composable
 fun ProfileTopBar(
