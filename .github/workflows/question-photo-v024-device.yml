@@ -46,7 +46,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: bash ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.denemelab.preview.QuestionPhotoBackupDeviceTest --no-daemon --no-configuration-cache --max-workers=2
+          script: |
+            bash ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.denemelab.preview.QuestionPhotoBackupDeviceTest --no-daemon --no-configuration-cache --max-workers=2
+            adb exec-out run-as com.denemelab.preview cat files/qa-question-vault-v024.png > question-vault-v024.png
+            test -s question-vault-v024.png
       - name: Publish test results (no installable APK distributed)
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,5 +58,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            question-vault-v024.png
           if-no-files-found: ignore
           retention-days: 5
