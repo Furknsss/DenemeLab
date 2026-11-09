@@ -29,7 +29,7 @@ object DenemeLabBackup {
     private const val PREFS = "denemelab_local_v1"
     private const val MAX_ENTRY = 16 * 1024 * 1024
     private const val MAX_TOTAL = 48L * 1024 * 1024
-    private const val MAX_ENTRIES = 180
+    private const val MAX_ENTRIES = 400
     private val safeLogo = Regex("[a-f0-9-]{36}\\.png")
 
     private fun snapshot(context: Context): JSONObject {
@@ -74,6 +74,24 @@ object DenemeLabBackup {
                         logo.inputStream().use { it.copyTo(zip) }
                         zip.closeEntry()
                     }
+
+                // Photos referenced by a question record are mandatory archive assets.
+                // A missing original aborts backup instead of silently losing questions.
+                val questionArray = JSONArray(prefs.getString("questions", "[]") ?: "[]")
+                val embeddedNames = mutableSetOf<String>()
+                for (i in 0 until questionArray.length()) {
+                    val name = questionArray.getJSONObject(i).optString("imageFile")
+                    if (name.isBlank() || !embeddedNames.add(name)) continue
+                    if (!QuestionPhotoStore.safeName.matches(name))
+                        throw IOException("Soru fotoğrafı dosya adı güvenli değil.")
+                    val photo = QuestionPhotoStore.asset(context, name)
+                        ?: throw IOException("Soru görseli bulunamadı.")
+                    if (!photo.isFile || photo.length() <= 0 || photo.length() > MAX_ENTRY)
+                        throw IOException("Soru fotoğrafı eksik veya çok büyük.")
+                    zip.putNextEntry(ZipEntry("questions/" + name))
+                    photo.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
 
                 val pictureUri = prefs.getString("studentPictureUri", "").orEmpty()
                 if (pictureUri.isNotBlank()) {
@@ -168,7 +186,9 @@ object DenemeLabBackup {
                     val name = entry.name
                     if (entry.isDirectory ||
                         !(name == "data.json" || name == "profile/picture.png" ||
-                            (name.startsWith("logos/") && safeLogo.matches(name.removePrefix("logos/"))))
+                            (name.startsWith("logos/") && safeLogo.matches(name.removePrefix("logos/"))) ||
+                            (name.startsWith("questions/") &&
+                                QuestionPhotoStore.safeName.matches(name.removePrefix("questions/"))))
                     ) throw IOException("Yedekte beklenmeyen dosya var.")
                     if (assets.containsKey(name)) throw IOException("Yinelenen yedek dosyası.")
                     val out = ByteArrayOutputStream()
@@ -198,6 +218,15 @@ object DenemeLabBackup {
             }
             val examCount = checkedArray("exams")
             val questionCount = checkedArray("questions")
+            val questions = JSONArray(prefs.optJSONObject("questions")?.optString("value", "[]") ?: "[]")
+            for (i in 0 until questions.length()) {
+                val photo = questions.getJSONObject(i).optString("imageFile")
+                if (photo.isNotBlank() && (
+                        !QuestionPhotoStore.safeName.matches(photo) ||
+                        !assets.containsKey("questions/" + photo)
+                    ))
+                    throw IOException("Yedekte soru fotoğrafı eksik veya güvensiz.")
+            }
             checkedArray("focus_completions_v1")
             checkedArray("publisher_catalog_v1")
             val brands = PublisherCatalog.decode(
@@ -233,11 +262,11 @@ object DenemeLabBackup {
         val archive = readArchive(file)
         val written = mutableListOf<File>()
         try {
-            fun writeAsset(folder: String, bytes: ByteArray): File {
+            fun writeAsset(folder: String, bytes: ByteArray, ext: String = "png"): File {
                 val directory = File(context.filesDir, folder)
                 if (!directory.exists() && !directory.mkdirs())
                     throw IOException("Yedek görseli için klasör oluşturulamadı.")
-                val destination = File(directory, UUID.randomUUID().toString() + ".png")
+                val destination = File(directory, UUID.randomUUID().toString() + "." + ext)
                 destination.outputStream().use { it.write(bytes) }
                 written.add(destination)
                 return destination
@@ -269,6 +298,23 @@ object DenemeLabBackup {
             }
             restoredValues["publisher_catalog_v1"] = PublisherCatalog.encode(
                 brands.map { it.copy(logoFile = newNames[it.logoFile] ?: "") })
+            // Rebind question images to new private filenames when restoring to
+            // another device. Never keep an old device's absolute URI or path.
+            val questions = JSONArray(restoredValues["questions"] as? String ?: "[]")
+            val questionNameMap = mutableMapOf<String, String>()
+            for (i in 0 until questions.length()) {
+                val row = questions.getJSONObject(i)
+                val old = row.optString("imageFile", "")
+                if (old.isBlank()) continue
+                val now = questionNameMap.getOrPut(old) {
+                    val bytes = archive.assets["questions/" + old]
+                        ?: throw IOException("Soru fotoğrafı eksik.")
+                    writeAsset("question-images", bytes, "jpg").name
+                }
+                row.put("imageFile", now)
+            }
+            restoredValues["questions"] = questions.toString()
+
             val picture = archive.assets["profile/picture.png"]
             if (picture != null) {
                 restoredValues["studentPictureUri"] =
